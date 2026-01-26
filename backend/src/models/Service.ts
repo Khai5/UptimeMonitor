@@ -1,9 +1,12 @@
 import db from '../database/schema';
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+
 export interface Service {
   id?: number;
   name: string;
   url: string;
+  http_method: HttpMethod;
   check_interval: number;
   timeout: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
@@ -36,13 +39,14 @@ export interface Incident {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, check_interval, timeout, status)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, check_interval, timeout, status)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
       service.name,
       service.url,
+      service.http_method || 'GET',
       service.check_interval,
       service.timeout,
       service.status

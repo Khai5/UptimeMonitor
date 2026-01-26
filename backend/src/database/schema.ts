@@ -22,6 +22,7 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       url TEXT NOT NULL,
+      http_method TEXT DEFAULT 'GET',
       check_interval INTEGER DEFAULT 60,
       timeout INTEGER DEFAULT 30,
       status TEXT DEFAULT 'unknown',
@@ -71,6 +72,12 @@ export function initializeDatabase() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: add http_method column to existing databases
+  const columns = db.prepare("PRAGMA table_info(services)").all() as { name: string }[];
+  if (!columns.some(col => col.name === 'http_method')) {
+    db.exec("ALTER TABLE services ADD COLUMN http_method TEXT DEFAULT 'GET'");
+  }
 
   // Create indexes
   db.exec(`

@@ -17,6 +17,7 @@ const sampleServices = [
   {
     name: 'Graph - Qwen3-4B - H&P Transcoders',
     url: 'https://example.com/api/health',
+    http_method: 'GET' as const,
     check_interval: 60,
     timeout: 30,
     status: 'unknown' as const,
@@ -24,6 +25,7 @@ const sampleServices = [
   {
     name: 'Gemma-2-2B-IT (Fleet A)',
     url: 'https://example.com/api/v1/health',
+    http_method: 'GET' as const,
     check_interval: 60,
     timeout: 30,
     status: 'unknown' as const,
@@ -31,6 +33,7 @@ const sampleServices = [
   {
     name: 'Gemma-2-2B | RES-65k MLP-65k',
     url: 'https://v7q64nlrc4w3am-5002.proxy.runpod.net/v1/activation/single',
+    http_method: 'POST' as const,
     check_interval: 60,
     timeout: 30,
     status: 'unknown' as const,
@@ -38,6 +41,7 @@ const sampleServices = [
   {
     name: 'GPT2-Small',
     url: 'https://example.com/gpt2/health',
+    http_method: 'GET' as const,
     check_interval: 60,
     timeout: 30,
     status: 'unknown' as const,

@@ -47,7 +47,14 @@ function ServiceCard({ service, onDelete, onCheckNow }: ServiceCardProps) {
             <h3 className="text-base font-medium text-gray-900 truncate">
               {service.name}
             </h3>
-            <p className="text-sm text-gray-500 truncate">{service.url}</p>
+            <p className="text-sm text-gray-500 truncate">
+              {service.http_method && service.http_method !== 'GET' && (
+                <span className="inline-block bg-gray-200 text-gray-700 text-xs font-mono px-1.5 py-0.5 rounded mr-1.5">
+                  {service.http_method}
+                </span>
+              )}
+              {service.url}
+            </p>
             {service.last_check_at && (
               <p className="text-xs text-gray-400 mt-1">
                 Last checked: {new Date(service.last_check_at).toLocaleString()}

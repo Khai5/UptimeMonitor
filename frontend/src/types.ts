@@ -1,7 +1,10 @@
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+
 export interface Service {
   id: number;
   name: string;
   url: string;
+  http_method: HttpMethod;
   check_interval: number;
   timeout: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
