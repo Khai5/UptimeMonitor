@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Service } from '../types';
+import { HttpMethod, Service } from '../types';
 
 interface AddServiceModalProps {
   onClose: () => void;
   onAdd: (service: Partial<Service>) => void;
 }
 
+const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+
 function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     url: '',
+    http_method: 'GET' as HttpMethod,
     check_interval: 60,
     timeout: 30,
   });
@@ -60,6 +63,28 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                 placeholder="https://example.com/api/health"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                HTTP Method
+              </label>
+              <select
+                value={formData.http_method}
+                onChange={(e) =>
+                  setFormData({ ...formData, http_method: e.target.value as HttpMethod })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {HTTP_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                HTTP method used for health checks (use POST for endpoints that don't accept GET)
+              </p>
             </div>
 
             <div>

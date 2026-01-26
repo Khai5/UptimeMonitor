@@ -13,9 +13,12 @@ export class HealthChecker {
     const startTime = Date.now();
 
     try {
-      const response = await axios.get(service.url, {
+      const method = (service.http_method || 'GET').toLowerCase() as string;
+      const response = await axios.request({
+        method,
+        url: service.url,
         timeout: service.timeout * 1000,
-        validateStatus: (status) => status < 500, // Consider 4xx as operational
+        validateStatus: (status) => status < 500,
         headers: {
           'User-Agent': 'UptimeMonitor/1.0',
         },

@@ -35,16 +35,24 @@ export function createRouter(monitoringService: MonitoringService): Router {
   // Create new service
   router.post('/services', (req: Request, res: Response) => {
     try {
-      const { name, url, check_interval = 60, timeout = 30 } = req.body;
+      const { name, url, http_method = 'GET', check_interval = 60, timeout = 30 } = req.body;
 
       if (!name || !url) {
         res.status(400).json({ error: 'Name and URL are required' });
         return;
       }
 
+      const validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+      const method = (http_method || 'GET').toUpperCase();
+      if (!validMethods.includes(method)) {
+        res.status(400).json({ error: `Invalid HTTP method. Must be one of: ${validMethods.join(', ')}` });
+        return;
+      }
+
       const service = ServiceModel.create({
         name,
         url,
+        http_method: method as any,
         check_interval,
         timeout,
         status: 'unknown',
