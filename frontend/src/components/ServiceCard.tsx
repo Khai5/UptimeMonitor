@@ -58,7 +58,20 @@ function ServiceCard({ service, onEdit, onDelete, onCheckNow }: ServiceCardProps
             </p>
             {service.last_check_at && (
               <p className="text-xs text-gray-400 mt-1">
-                Last checked: {new Date(service.last_check_at).toLocaleString()}
+                Last checked: {new Date(
+                  service.last_check_at.endsWith('Z') || service.last_check_at.includes('+')
+                    ? service.last_check_at
+                    : service.last_check_at + 'Z'
+                ).toLocaleString('en-US', {
+                  month: 'numeric',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true,
+                  timeZoneName: 'short',
+                })}
               </p>
             )}
           </div>
