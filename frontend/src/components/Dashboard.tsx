@@ -6,6 +6,7 @@ interface DashboardProps {
   services: Service[];
   overallStatus: OverallStatus | null;
   onAddService: () => void;
+  onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
   onCheckNow: (id: number) => void;
 }
@@ -14,6 +15,7 @@ function Dashboard({
   services,
   overallStatus,
   onAddService,
+  onEditService,
   onDeleteService,
   onCheckNow,
 }: DashboardProps) {
@@ -119,6 +121,7 @@ function Dashboard({
               <ServiceCard
                 key={service.id}
                 service={service}
+                onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
               />

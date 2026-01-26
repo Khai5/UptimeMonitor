@@ -1,13 +1,14 @@
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog } from 'react-icons/fa';
 import { Service } from '../types';
 
 interface ServiceCardProps {
   service: Service;
+  onEdit: (service: Service) => void;
   onDelete: (id: number) => void;
   onCheckNow: (id: number) => void;
 }
 
-function ServiceCard({ service, onDelete, onCheckNow }: ServiceCardProps) {
+function ServiceCard({ service, onEdit, onDelete, onCheckNow }: ServiceCardProps) {
   const getStatusColor = () => {
     switch (service.status) {
       case 'operational':
@@ -74,6 +75,13 @@ function ServiceCard({ service, onDelete, onCheckNow }: ServiceCardProps) {
               title="Check now"
             >
               <FaSync />
+            </button>
+            <button
+              onClick={() => onEdit(service)}
+              className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              title="Edit service"
+            >
+              <FaCog />
             </button>
             <button
               onClick={() => onDelete(service.id)}

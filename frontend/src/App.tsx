@@ -3,11 +3,13 @@ import { Service, OverallStatus } from './types';
 import { servicesApi, statusApi } from './api';
 import Dashboard from './components/Dashboard';
 import AddServiceModal from './components/AddServiceModal';
+import EditServiceModal from './components/EditServiceModal';
 
 function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [overallStatus, setOverallStatus] = useState<OverallStatus | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = async () => {
@@ -42,6 +44,17 @@ function App() {
     } catch (error) {
       console.error('Error adding service:', error);
       alert('Failed to add service');
+    }
+  };
+
+  const handleEditService = async (id: number, updates: Partial<Service>) => {
+    try {
+      await servicesApi.update(id, updates);
+      await fetchData();
+      setEditingService(null);
+    } catch (error) {
+      console.error('Error updating service:', error);
+      alert('Failed to update service');
     }
   };
 
@@ -81,6 +94,7 @@ function App() {
         services={services}
         overallStatus={overallStatus}
         onAddService={() => setIsAddModalOpen(true)}
+        onEditService={(service) => setEditingService(service)}
         onDeleteService={handleDeleteService}
         onCheckNow={handleCheckNow}
       />
@@ -89,6 +103,14 @@ function App() {
         <AddServiceModal
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddService}
+        />
+      )}
+
+      {editingService && (
+        <EditServiceModal
+          service={editingService}
+          onClose={() => setEditingService(null)}
+          onSave={handleEditService}
         />
       )}
     </div>
