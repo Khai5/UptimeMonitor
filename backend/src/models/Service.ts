@@ -95,17 +95,18 @@ export class ServiceModel {
   static updateStatus(id: number, status: Service['status']): void {
     const currentService = this.getById(id);
     const statusChanged = currentService && currentService.status !== status;
+    const now = new Date().toISOString();
 
     const stmt = db.prepare(`
       UPDATE services
       SET status = ?,
-          last_check_at = CURRENT_TIMESTAMP,
-          last_status_change_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE last_status_change_at END,
-          updated_at = CURRENT_TIMESTAMP
+          last_check_at = ?,
+          last_status_change_at = CASE WHEN ? THEN ? ELSE last_status_change_at END,
+          updated_at = ?
       WHERE id = ?
     `);
 
-    stmt.run(status, statusChanged ? 1 : 0, id);
+    stmt.run(status, now, statusChanged ? 1 : 0, now, now, id);
   }
 }
 
