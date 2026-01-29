@@ -73,6 +73,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// In production, serve the frontend static files
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+
+  // Serve index.html for any non-API route (SPA client-side routing)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+  console.log('Serving frontend static files from', frontendDist);
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
