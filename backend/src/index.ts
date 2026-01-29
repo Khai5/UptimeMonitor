@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { initializeDatabase } from './database/schema';
 import { createRouter } from './api/routes';
-import { NotificationService } from './services/notificationService';
+import { NotificationService, NotificationConfig } from './services/notificationService';
 import { MonitoringService } from './services/monitoringService';
 
 // Load environment variables
@@ -29,19 +29,38 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize notification service
-const emailConfig = process.env.SMTP_HOST
-  ? {
+let notificationConfig: NotificationConfig | undefined;
+
+const emailFrom = process.env.EMAIL_FROM || '';
+const emailTo = (process.env.EMAIL_TO || '').split(',').map((e) => e.trim()).filter(Boolean);
+
+if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
+  notificationConfig = {
+    from: emailFrom,
+    to: emailTo,
+    mailgun: {
+      apiKey: process.env.MAILGUN_API_KEY,
+      domain: process.env.MAILGUN_DOMAIN,
+      eu: process.env.MAILGUN_EU === 'true',
+    },
+  };
+  console.log('Using Mailgun for email notifications');
+} else if (process.env.SMTP_HOST) {
+  notificationConfig = {
+    from: emailFrom,
+    to: emailTo,
+    smtp: {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true',
       user: process.env.SMTP_USER || '',
       password: process.env.SMTP_PASSWORD || '',
-      from: process.env.EMAIL_FROM || '',
-      to: (process.env.EMAIL_TO || '').split(',').filter(Boolean),
-    }
-  : undefined;
+    },
+  };
+  console.log('Using SMTP for email notifications');
+}
 
-const notificationService = new NotificationService(emailConfig);
+const notificationService = new NotificationService(notificationConfig);
 
 // Initialize monitoring service
 const monitoringService = new MonitoringService(notificationService);
