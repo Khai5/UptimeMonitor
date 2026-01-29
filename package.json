@@ -15,6 +15,7 @@
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:backend && npm run build:frontend",
     "start:backend": "cd backend && npm start",
+    "start": "npm run build && node backend/dist/index.js",
     "seed": "cd backend && ts-node src/seedServices.ts"
   },
   "keywords": ["uptime", "monitoring", "notifications"],
