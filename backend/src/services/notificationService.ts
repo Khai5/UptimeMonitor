@@ -1,38 +1,87 @@
 import nodemailer from 'nodemailer';
+import Mailgun from 'mailgun.js';
+import FormData from 'form-data';
 import { Service, Incident } from '../models/Service';
 
-export interface EmailConfig {
+export interface SmtpConfig {
   host: string;
   port: number;
   secure: boolean;
   user: string;
   password: string;
+}
+
+export interface MailgunConfig {
+  apiKey: string;
+  domain: string;
+  /** Set to true to use Mailgun's EU region endpoint */
+  eu?: boolean;
+}
+
+export interface NotificationConfig {
   from: string;
   to: string[];
+  /** Use one of smtp or mailgun. If both are provided, mailgun takes precedence. */
+  smtp?: SmtpConfig;
+  mailgun?: MailgunConfig;
 }
 
 export class NotificationService {
-  private emailConfig?: EmailConfig;
+  private config?: NotificationConfig;
   private transporter?: nodemailer.Transporter;
+  private mailgunClient?: ReturnType<InstanceType<typeof Mailgun>['client']>;
 
-  constructor(emailConfig?: EmailConfig) {
-    this.emailConfig = emailConfig;
+  constructor(config?: NotificationConfig) {
+    this.config = config;
 
-    if (emailConfig) {
+    if (!config) return;
+
+    if (config.mailgun) {
+      const mg = new Mailgun(FormData);
+      this.mailgunClient = mg.client({
+        username: 'api',
+        key: config.mailgun.apiKey,
+        ...(config.mailgun.eu ? { url: 'https://api.eu.mailgun.net' } : {}),
+      });
+    } else if (config.smtp) {
       this.transporter = nodemailer.createTransport({
-        host: emailConfig.host,
-        port: emailConfig.port,
-        secure: emailConfig.secure,
+        host: config.smtp.host,
+        port: config.smtp.port,
+        secure: config.smtp.secure,
         auth: {
-          user: emailConfig.user,
-          pass: emailConfig.password,
+          user: config.smtp.user,
+          pass: config.smtp.password,
         },
       });
     }
   }
 
+  private get isConfigured(): boolean {
+    return !!(this.transporter || this.mailgunClient);
+  }
+
+  private async sendEmail(subject: string, html: string): Promise<void> {
+    if (!this.config) throw new Error('Notification config not set');
+
+    if (this.mailgunClient && this.config.mailgun) {
+      await this.mailgunClient.messages.create(this.config.mailgun.domain, {
+        from: this.config.from,
+        to: this.config.to,
+        subject,
+        html,
+      });
+    } else if (this.transporter) {
+      await this.transporter.sendMail({
+        from: this.config.from,
+        to: this.config.to.join(', '),
+        subject,
+        html,
+      });
+    }
+  }
+
   async sendServiceDownAlert(service: Service, incident: Incident): Promise<void> {
-    if (!this.emailConfig || !this.transporter) {
+    if (!this.isConfigured) {
       console.log('Email not configured, skipping notification');
       return;
     }
@@ -59,13 +108,7 @@ export class NotificationService {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: this.emailConfig.from,
-        to: this.emailConfig.to.join(', '),
-        subject,
-        html,
-      });
-
+      await this.sendEmail(subject, html);
       console.log(`Alert email sent for service: ${service.name}`);
     } catch (error) {
       console.error('Failed to send email notification:', error);
@@ -74,7 +117,7 @@ export class NotificationService {
   }
 
   async sendServiceRecoveredAlert(service: Service, incident: Incident): Promise<void> {
-    if (!this.emailConfig || !this.transporter) {
+    if (!this.isConfigured) {
       console.log('Email not configured, skipping notification');
       return;
     }
@@ -104,13 +147,7 @@ export class NotificationService {
     `;
 
     try {
-      await this.transporter.sendMail({
-        from: this.emailConfig.from,
-        to: this.emailConfig.to.join(', '),
-        subject,
-        html,
-      });
-
+      await this.sendEmail(subject, html);
       console.log(`Recovery email sent for service: ${service.name}`);
     } catch (error) {
       console.error('Failed to send email notification:', error);
@@ -119,17 +156,28 @@ export class NotificationService {
   }
 
   async testConnection(): Promise<boolean> {
-    if (!this.transporter) {
-      return false;
+    if (this.mailgunClient && this.config?.mailgun) {
+      try {
+        await this.mailgunClient.domains.get(this.config.mailgun.domain);
+        console.log('Mailgun configuration is valid');
+        return true;
+      } catch (error) {
+        console.error('Mailgun configuration is invalid:', error);
+        return false;
+      }
     }
 
-    try {
-      await this.transporter.verify();
-      console.log('Email configuration is valid');
-      return true;
-    } catch (error) {
-      console.error('Email configuration is invalid:', error);
-      return false;
+    if (this.transporter) {
+      try {
+        await this.transporter.verify();
+        console.log('Email configuration is valid');
+        return true;
+      } catch (error) {
+        console.error('Email configuration is invalid:', error);
+        return false;
+      }
     }
+
+    return false;
   }
 }
