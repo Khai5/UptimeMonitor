@@ -66,7 +66,7 @@ const notificationService = new NotificationService(notificationConfig);
 const monitoringService = new MonitoringService(notificationService);
 
 // Setup routes
-app.use('/api', createRouter(monitoringService));
+app.use('/api', createRouter(monitoringService, notificationService));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

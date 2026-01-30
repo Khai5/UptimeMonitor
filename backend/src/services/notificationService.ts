@@ -155,6 +155,31 @@ export class NotificationService {
     }
   }
 
+  async sendTestEmail(): Promise<void> {
+    if (!this.isConfigured) {
+      throw new Error('Email not configured');
+    }
+
+    const subject = 'Uptime Monitor - Test Alert Email';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">Test Alert Email</h1>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
+          <p style="color: #1f2937;">This is a test email from your Uptime Monitor.</p>
+          <p style="color: #1f2937;">If you received this, your email notification configuration is working correctly.</p>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+            Sent at: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      </div>
+    `;
+
+    await this.sendEmail(subject, html);
+    console.log('Test email sent successfully');
+  }
+
   async testConnection(): Promise<boolean> {
     if (this.mailgunClient && this.config?.mailgun) {
       try {
