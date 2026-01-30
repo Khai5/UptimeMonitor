@@ -14,15 +14,45 @@ export class HealthChecker {
 
     try {
       const method = (service.http_method || 'GET').toLowerCase() as string;
-      const response = await axios.request({
+
+      // Build headers: start with default, merge in custom headers
+      const headers: Record<string, string> = {
+        'User-Agent': 'UptimeMonitor/1.0',
+      };
+
+      if (service.request_headers) {
+        try {
+          const customHeaders = JSON.parse(service.request_headers);
+          Object.assign(headers, customHeaders);
+        } catch (e) {
+          console.warn(`Invalid request_headers JSON for service ${service.name}:`, e);
+        }
+      }
+
+      // Build request config
+      const requestConfig: Record<string, any> = {
         method,
         url: service.url,
         timeout: service.timeout * 1000,
-        validateStatus: (status) => status < 500,
-        headers: {
-          'User-Agent': 'UptimeMonitor/1.0',
-        },
-      });
+        validateStatus: (status: number) => status < 500,
+        headers,
+      };
+
+      // Add request body for methods that support it
+      if (service.request_body && ['post', 'put', 'patch'].includes(method)) {
+        try {
+          requestConfig.data = JSON.parse(service.request_body);
+          // Set content-type if not already set by custom headers
+          if (!headers['Content-Type'] && !headers['content-type']) {
+            headers['Content-Type'] = 'application/json';
+          }
+        } catch (e) {
+          // If not valid JSON, send as raw string
+          requestConfig.data = service.request_body;
+        }
+      }
+
+      const response = await axios.request(requestConfig);
 
       const responseTime = Date.now() - startTime;
 

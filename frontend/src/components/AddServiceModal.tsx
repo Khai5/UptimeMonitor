@@ -13,7 +13,9 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
     name: '',
     url: '',
     http_method: 'GET' as HttpMethod,
-    check_interval: 60,
+    request_body: '',
+    request_headers: '',
+    check_interval: 900,
     timeout: 30,
   });
 
@@ -25,12 +27,27 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
       return;
     }
 
-    onAdd(formData);
+    if (formData.request_headers.trim()) {
+      try {
+        JSON.parse(formData.request_headers);
+      } catch (e) {
+        alert('Request Headers must be valid JSON (e.g. {"Authorization": "Bearer xxx"})');
+        return;
+      }
+    }
+
+    onAdd({
+      ...formData,
+      request_body: formData.request_body || undefined,
+      request_headers: formData.request_headers || undefined,
+    });
   };
+
+  const showBodyFields = ['POST', 'PUT', 'PATCH'].includes(formData.http_method);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Add New Service</h2>
         </div>
@@ -52,9 +69,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                URL *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL *</label>
               <input
                 type="url"
                 value={formData.url}
@@ -66,9 +81,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                HTTP Method
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">HTTP Method</label>
               <select
                 value={formData.http_method}
                 onChange={(e) =>
@@ -77,15 +90,44 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {HTTP_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
+                  <option key={method} value={method}>{method}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Request Headers (JSON)
+              </label>
+              <textarea
+                value={formData.request_headers}
+                onChange={(e) => setFormData({ ...formData, request_headers: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                placeholder='{"Authorization": "Bearer your-secret-key"}'
+                rows={3}
+              />
               <p className="text-xs text-gray-500 mt-1">
-                HTTP method used for health checks (use POST for endpoints that don't accept GET)
+                Custom headers sent with each health check (e.g. auth tokens, API keys)
               </p>
             </div>
+
+            {showBodyFields && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Request Body (JSON)
+                </label>
+                <textarea
+                  value={formData.request_body}
+                  onChange={(e) => setFormData({ ...formData, request_body: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder='{"modelId": "your-model-id"}'
+                  rows={4}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  JSON body sent with POST/PUT/PATCH requests
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -102,7 +144,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                How often to check the service (minimum 30 seconds)
+                Default: 900 (15 minutes). Minimum: 30 seconds.
               </p>
             </div>
 
@@ -121,9 +163,6 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                 max="120"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Maximum time to wait for a response
-              </p>
             </div>
           </div>
 

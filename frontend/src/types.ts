@@ -5,6 +5,8 @@ export interface Service {
   name: string;
   url: string;
   http_method: HttpMethod;
+  request_body?: string;
+  request_headers?: string;
   check_interval: number;
   timeout: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
@@ -12,6 +14,14 @@ export interface Service {
   last_status_change_at?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// Public view: only name + status (no URLs, no secrets)
+export interface PublicService {
+  id: number;
+  name: string;
+  status: 'operational' | 'degraded' | 'down' | 'unknown';
+  last_check_at?: string;
 }
 
 export interface ServiceCheck {
@@ -41,6 +51,6 @@ export interface OverallStatus {
   degraded: number;
   down: number;
   unknown: number;
-  active_incidents: number;
+  active_incidents?: number;
   last_updated: string;
 }

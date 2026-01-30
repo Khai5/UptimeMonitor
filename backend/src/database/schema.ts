@@ -23,7 +23,9 @@ export function initializeDatabase() {
       name TEXT NOT NULL,
       url TEXT NOT NULL,
       http_method TEXT DEFAULT 'GET',
-      check_interval INTEGER DEFAULT 60,
+      request_body TEXT,
+      request_headers TEXT,
+      check_interval INTEGER DEFAULT 900,
       timeout INTEGER DEFAULT 30,
       status TEXT DEFAULT 'unknown',
       last_check_at DATETIME,
@@ -78,6 +80,23 @@ export function initializeDatabase() {
   if (!columns.some(col => col.name === 'http_method')) {
     db.exec("ALTER TABLE services ADD COLUMN http_method TEXT DEFAULT 'GET'");
   }
+
+  // Migration: add request_body and request_headers columns
+  if (!columns.some(col => col.name === 'request_body')) {
+    db.exec("ALTER TABLE services ADD COLUMN request_body TEXT");
+  }
+  if (!columns.some(col => col.name === 'request_headers')) {
+    db.exec("ALTER TABLE services ADD COLUMN request_headers TEXT");
+  }
+
+  // Create app_settings table for admin password, email config, etc.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   // Create indexes
   db.exec(`
