@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel } from '../models/Service';
+import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, DowntimeLog } from '../models/Service';
 import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
@@ -314,6 +314,38 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       res.json(incidents);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch incidents' });
+    }
+  });
+
+  // Admin: Get downtime log for a service
+  router.get('/admin/services/:id/downtime-log', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = ServiceModel.getById(id);
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+      const log = IncidentModel.getDowntimeLogByServiceId(id);
+      res.json(log);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch downtime log' });
+    }
+  });
+
+  // Admin: Get downtime logs for all services
+  router.get('/admin/downtime-logs', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const services = ServiceModel.getAll();
+      const logs: Record<number, DowntimeLog> = {};
+      for (const service of services) {
+        if (service.id) {
+          logs[service.id] = IncidentModel.getDowntimeLogByServiceId(service.id);
+        }
+      }
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch downtime logs' });
     }
   });
 

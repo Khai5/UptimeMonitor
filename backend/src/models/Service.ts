@@ -38,6 +38,22 @@ export interface Incident {
   notification_sent: boolean;
 }
 
+export interface DowntimeLog {
+  service_id: number;
+  total_incidents: number;
+  resolved_incidents: number;
+  active_incident: Incident | null;
+  total_downtime_seconds: number;
+  avg_downtime_seconds: number;
+  longest_downtime_seconds: number;
+  shortest_downtime_seconds: number;
+  uptime_percentage: number;
+  last_24h: { incidents: number; downtime_seconds: number };
+  last_7d: { incidents: number; downtime_seconds: number };
+  last_30d: { incidents: number; downtime_seconds: number };
+  recent_incidents: Incident[];
+}
+
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
@@ -224,6 +240,104 @@ export class IncidentModel {
   static markNotificationSent(id: number): void {
     const stmt = db.prepare('UPDATE incidents SET notification_sent = 1 WHERE id = ?');
     stmt.run(id);
+  }
+
+  static getDowntimeLogByServiceId(serviceId: number): DowntimeLog {
+    const incidents = this.getByServiceId(serviceId, 1000);
+    const service = ServiceModel.getById(serviceId);
+
+    const totalIncidents = incidents.length;
+    const resolvedIncidents = incidents.filter(i => i.resolved_at);
+    const activeIncident = incidents.find(i => !i.resolved_at) || null;
+
+    // Total downtime in seconds (resolved incidents)
+    const totalDowntimeSeconds = resolvedIncidents.reduce((sum, i) => sum + (i.duration || 0), 0);
+
+    // If there's an active incident, add its ongoing duration
+    let currentDowntimeSeconds = 0;
+    if (activeIncident) {
+      currentDowntimeSeconds = Math.floor(
+        (Date.now() - new Date(activeIncident.started_at).getTime()) / 1000
+      );
+    }
+
+    const avgDowntimeSeconds = resolvedIncidents.length > 0
+      ? Math.floor(totalDowntimeSeconds / resolvedIncidents.length)
+      : 0;
+
+    const longestDowntimeSeconds = resolvedIncidents.length > 0
+      ? Math.max(...resolvedIncidents.map(i => i.duration || 0))
+      : 0;
+
+    const shortestDowntimeSeconds = resolvedIncidents.length > 0
+      ? Math.min(...resolvedIncidents.map(i => i.duration || 0))
+      : 0;
+
+    // Uptime percentage: based on time since service was created
+    let uptimePercentage = 100;
+    if (service?.created_at) {
+      const totalMonitoredSeconds = Math.floor(
+        (Date.now() - new Date(service.created_at).getTime()) / 1000
+      );
+      if (totalMonitoredSeconds > 0) {
+        const allDowntime = totalDowntimeSeconds + currentDowntimeSeconds;
+        uptimePercentage = Math.max(0, Math.min(100,
+          parseFloat(((1 - allDowntime / totalMonitoredSeconds) * 100).toFixed(3))
+        ));
+      }
+    }
+
+    // Last 24h stats
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const last24hIncidents = incidents.filter(i =>
+      i.started_at >= twentyFourHoursAgo
+    );
+    const last24hDowntimeSeconds = last24hIncidents
+      .filter(i => i.resolved_at)
+      .reduce((sum, i) => sum + (i.duration || 0), 0);
+
+    // Last 7d stats
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const last7dIncidents = incidents.filter(i =>
+      i.started_at >= sevenDaysAgo
+    );
+    const last7dDowntimeSeconds = last7dIncidents
+      .filter(i => i.resolved_at)
+      .reduce((sum, i) => sum + (i.duration || 0), 0);
+
+    // Last 30d stats
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const last30dIncidents = incidents.filter(i =>
+      i.started_at >= thirtyDaysAgo
+    );
+    const last30dDowntimeSeconds = last30dIncidents
+      .filter(i => i.resolved_at)
+      .reduce((sum, i) => sum + (i.duration || 0), 0);
+
+    return {
+      service_id: serviceId,
+      total_incidents: totalIncidents,
+      resolved_incidents: resolvedIncidents.length,
+      active_incident: activeIncident,
+      total_downtime_seconds: totalDowntimeSeconds + currentDowntimeSeconds,
+      avg_downtime_seconds: avgDowntimeSeconds,
+      longest_downtime_seconds: longestDowntimeSeconds,
+      shortest_downtime_seconds: shortestDowntimeSeconds,
+      uptime_percentage: uptimePercentage,
+      last_24h: {
+        incidents: last24hIncidents.length,
+        downtime_seconds: last24hDowntimeSeconds,
+      },
+      last_7d: {
+        incidents: last7dIncidents.length,
+        downtime_seconds: last7dDowntimeSeconds,
+      },
+      last_30d: {
+        incidents: last30dIncidents.length,
+        downtime_seconds: last30dDowntimeSeconds,
+      },
+      recent_incidents: incidents.slice(0, 10),
+    };
   }
 }
 

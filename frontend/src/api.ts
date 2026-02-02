@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Service, PublicService, ServiceCheck, Incident, OverallStatus } from './types';
+import { Service, PublicService, ServiceCheck, Incident, OverallStatus, DowntimeLog } from './types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -42,6 +42,10 @@ export const adminApi = {
     api.get<Incident[]>(`/admin/services/${id}/incidents`, { ...authHeaders(password), params: { limit } }),
   getAllIncidents: (password: string, limit?: number) =>
     api.get<Incident[]>('/admin/incidents', { ...authHeaders(password), params: { limit } }),
+  getDowntimeLog: (password: string, id: number) =>
+    api.get<DowntimeLog>(`/admin/services/${id}/downtime-log`, authHeaders(password)),
+  getAllDowntimeLogs: (password: string) =>
+    api.get<Record<number, DowntimeLog>>('/admin/downtime-logs', authHeaders(password)),
   getStatus: (password: string) =>
     api.get<OverallStatus>('/admin/status', authHeaders(password)),
   getSettings: (password: string) =>
