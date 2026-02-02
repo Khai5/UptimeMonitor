@@ -196,6 +196,7 @@ function App() {
       <AdminDashboard
         services={services}
         overallStatus={overallStatus}
+        password={adminPassword}
         onAddService={() => setIsAddModalOpen(true)}
         onEditService={(service) => setEditingService(service)}
         onDeleteService={handleDeleteService}

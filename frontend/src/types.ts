@@ -44,6 +44,22 @@ export interface Incident {
   notification_sent: boolean;
 }
 
+export interface DowntimeLog {
+  service_id: number;
+  total_incidents: number;
+  resolved_incidents: number;
+  active_incident: Incident | null;
+  total_downtime_seconds: number;
+  avg_downtime_seconds: number;
+  longest_downtime_seconds: number;
+  shortest_downtime_seconds: number;
+  uptime_percentage: number;
+  last_24h: { incidents: number; downtime_seconds: number };
+  last_7d: { incidents: number; downtime_seconds: number };
+  last_30d: { incidents: number; downtime_seconds: number };
+  recent_incidents: Incident[];
+}
+
 export interface OverallStatus {
   status: 'operational' | 'degraded' | 'down';
   total_services: number;

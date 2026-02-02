@@ -5,6 +5,7 @@ import ServiceCard from './ServiceCard';
 interface AdminDashboardProps {
   services: Service[];
   overallStatus: OverallStatus | null;
+  password: string;
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
@@ -17,6 +18,7 @@ interface AdminDashboardProps {
 function AdminDashboard({
   services,
   overallStatus,
+  password,
   onAddService,
   onEditService,
   onDeleteService,
@@ -145,6 +147,7 @@ function AdminDashboard({
               <ServiceCard
                 key={service.id}
                 service={service}
+                password={password}
                 onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
