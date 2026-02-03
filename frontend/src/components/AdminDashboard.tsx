@@ -6,6 +6,7 @@ interface AdminDashboardProps {
   services: Service[];
   overallStatus: OverallStatus | null;
   password: string;
+  checkingServiceId: number | null;
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
@@ -19,6 +20,7 @@ function AdminDashboard({
   services,
   overallStatus,
   password,
+  checkingServiceId,
   onAddService,
   onEditService,
   onDeleteService,
@@ -148,6 +150,7 @@ function AdminDashboard({
                 key={service.id}
                 service={service}
                 password={password}
+                isChecking={checkingServiceId === service.id}
                 onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
