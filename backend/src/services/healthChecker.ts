@@ -1,6 +1,4 @@
-import axios, { AxiosError } from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { Service } from '../models/Service';
 
 export interface HealthCheckResult {
@@ -37,23 +35,16 @@ export class HealthChecker {
       const keepCookies = service.keep_cookies !== false && (service.keep_cookies as unknown) !== 0;
 
       // Build request config
-      const requestConfig: Record<string, any> = {
-        method,
+      const requestConfig: AxiosRequestConfig = {
+        method: method as AxiosRequestConfig['method'],
         url: service.url,
         timeout: service.timeout * 1000,
         validateStatus: (status: number) => status < 500,
         headers,
         maxRedirects: followRedirects ? 5 : 0,
+        // Enable credentials for cookie handling
+        withCredentials: keepCookies,
       };
-
-      // Create axios instance with cookie support if needed
-      let client = axios.create();
-      if (keepCookies && followRedirects) {
-        const jar = new CookieJar();
-        client = wrapper(axios.create({ jar }));
-        requestConfig.jar = jar;
-        requestConfig.withCredentials = true;
-      }
 
       // Add request body for methods that support it
       if (service.request_body && ['post', 'put', 'patch'].includes(method)) {
@@ -75,7 +66,7 @@ export class HealthChecker {
         }
       }
 
-      const response = await client.request(requestConfig);
+      const response = await axios.request(requestConfig);
 
       const responseTime = Date.now() - startTime;
 
