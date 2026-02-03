@@ -29,6 +29,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [checkingServiceId, setCheckingServiceId] = useState<number | null>(null);
 
   // Public data fetch
   const fetchPublicData = async () => {
@@ -143,11 +144,14 @@ function App() {
 
   const handleCheckNow = async (id: number) => {
     try {
+      setCheckingServiceId(id);
       await adminApi.checkNow(adminPassword, id);
       await fetchAdminData();
     } catch (error) {
       console.error('Error checking service:', error);
       alert('Failed to check service');
+    } finally {
+      setCheckingServiceId(null);
     }
   };
 
@@ -197,6 +201,7 @@ function App() {
         services={services}
         overallStatus={overallStatus}
         password={adminPassword}
+        checkingServiceId={checkingServiceId}
         onAddService={() => setIsAddModalOpen(true)}
         onEditService={(service) => setEditingService(service)}
         onDeleteService={handleDeleteService}

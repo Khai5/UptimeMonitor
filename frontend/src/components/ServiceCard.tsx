@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { Service, DowntimeLog } from '../types';
 import { adminApi } from '../api';
@@ -7,15 +7,28 @@ import DowntimeLogPanel from './DowntimeLogPanel';
 interface ServiceCardProps {
   service: Service;
   password: string;
+  isChecking?: boolean;
   onEdit: (service: Service) => void;
   onDelete: (id: number) => void;
   onCheckNow: (id: number) => void;
 }
 
-function ServiceCard({ service, password, onEdit, onDelete, onCheckNow }: ServiceCardProps) {
+function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, onCheckNow }: ServiceCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [downtimeLog, setDowntimeLog] = useState<DowntimeLog | null>(null);
   const [loadingLog, setLoadingLog] = useState(false);
+  const [justUpdated, setJustUpdated] = useState(false);
+  const prevLastCheckRef = useRef(service.last_check_at);
+
+  // Detect when last_check_at changes and trigger highlight animation
+  useEffect(() => {
+    if (prevLastCheckRef.current !== service.last_check_at && prevLastCheckRef.current !== undefined) {
+      setJustUpdated(true);
+      const timer = setTimeout(() => setJustUpdated(false), 1500);
+      return () => clearTimeout(timer);
+    }
+    prevLastCheckRef.current = service.last_check_at;
+  }, [service.last_check_at]);
 
   const toggleExpand = async () => {
     if (!expanded && !downtimeLog) {
@@ -80,7 +93,7 @@ function ServiceCard({ service, password, onEdit, onDelete, onCheckNow }: Servic
                 {service.url}
               </p>
               {service.last_check_at && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className={`text-xs mt-1 transition-colors duration-1000 ${justUpdated ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
                   Last checked: {new Date(
                     service.last_check_at.endsWith('Z') || service.last_check_at.includes('+')
                       ? service.last_check_at
@@ -116,8 +129,9 @@ function ServiceCard({ service, password, onEdit, onDelete, onCheckNow }: Servic
                 onClick={() => onCheckNow(service.id)}
                 className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                 title="Check now"
+                disabled={isChecking}
               >
-                <FaSync />
+                <FaSync className={isChecking ? 'animate-spin' : ''} />
               </button>
               <button
                 onClick={() => onEdit(service)}
