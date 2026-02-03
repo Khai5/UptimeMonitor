@@ -89,6 +89,14 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE services ADD COLUMN request_headers TEXT");
   }
 
+  // Migration: add follow_redirects and keep_cookies columns
+  if (!columns.some(col => col.name === 'follow_redirects')) {
+    db.exec("ALTER TABLE services ADD COLUMN follow_redirects INTEGER DEFAULT 1");
+  }
+  if (!columns.some(col => col.name === 'keep_cookies')) {
+    db.exec("ALTER TABLE services ADD COLUMN keep_cookies INTEGER DEFAULT 1");
+  }
+
   // Create app_settings table for admin password, email config, etc.
   db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (

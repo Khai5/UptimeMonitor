@@ -7,6 +7,8 @@ export interface Service {
   http_method: HttpMethod;
   request_body?: string;
   request_headers?: string;
+  follow_redirects: boolean;
+  keep_cookies: boolean;
   check_interval: number;
   timeout: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';

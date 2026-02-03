@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
-import { Service, ServiceCheck } from '../models/Service';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
+import { Service } from '../models/Service';
 
 export interface HealthCheckResult {
   status: 'operational' | 'degraded' | 'down';
@@ -29,6 +31,11 @@ export class HealthChecker {
         }
       }
 
+      // Determine redirect behavior (default to following redirects)
+      // SQLite stores booleans as 0/1, so we check for both false and 0
+      const followRedirects = service.follow_redirects !== false && (service.follow_redirects as unknown) !== 0;
+      const keepCookies = service.keep_cookies !== false && (service.keep_cookies as unknown) !== 0;
+
       // Build request config
       const requestConfig: Record<string, any> = {
         method,
@@ -36,23 +43,39 @@ export class HealthChecker {
         timeout: service.timeout * 1000,
         validateStatus: (status: number) => status < 500,
         headers,
+        maxRedirects: followRedirects ? 5 : 0,
       };
+
+      // Create axios instance with cookie support if needed
+      let client = axios.create();
+      if (keepCookies && followRedirects) {
+        const jar = new CookieJar();
+        client = wrapper(axios.create({ jar }));
+        requestConfig.jar = jar;
+        requestConfig.withCredentials = true;
+      }
 
       // Add request body for methods that support it
       if (service.request_body && ['post', 'put', 'patch'].includes(method)) {
+        // Replace {timestamp} placeholder with current timestamp
+        let bodyContent = service.request_body.replace(
+          /\{timestamp\}/g,
+          String(Date.now())
+        );
+
         try {
-          requestConfig.data = JSON.parse(service.request_body);
+          requestConfig.data = JSON.parse(bodyContent);
           // Set content-type if not already set by custom headers
           if (!headers['Content-Type'] && !headers['content-type']) {
             headers['Content-Type'] = 'application/json';
           }
         } catch (e) {
           // If not valid JSON, send as raw string
-          requestConfig.data = service.request_body;
+          requestConfig.data = bodyContent;
         }
       }
 
-      const response = await axios.request(requestConfig);
+      const response = await client.request(requestConfig);
 
       const responseTime = Date.now() - startTime;
 

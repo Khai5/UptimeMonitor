@@ -9,6 +9,8 @@ export interface Service {
   http_method: HttpMethod;
   request_body?: string;
   request_headers?: string;
+  follow_redirects: boolean;
+  keep_cookies: boolean;
   check_interval: number;
   timeout: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
@@ -57,8 +59,8 @@ export interface DowntimeLog {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, http_method, request_body, request_headers, check_interval, timeout, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -67,6 +69,8 @@ export class ServiceModel {
       service.http_method || 'GET',
       service.request_body || null,
       service.request_headers || null,
+      service.follow_redirects !== false ? 1 : 0,
+      service.keep_cookies !== false ? 1 : 0,
       service.check_interval,
       service.timeout,
       service.status
