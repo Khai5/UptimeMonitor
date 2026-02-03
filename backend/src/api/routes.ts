@@ -160,7 +160,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   // Admin: Create new service
   router.post('/admin/services', requireAdmin, (req: Request, res: Response) => {
     try {
-      const { name, url, http_method = 'GET', request_body, request_headers, check_interval = 900, timeout = 30 } = req.body;
+      const { name, url, http_method = 'GET', request_body, request_headers, follow_redirects = true, keep_cookies = true, check_interval = 900, timeout = 30 } = req.body;
 
       if (!name || !url) {
         res.status(400).json({ error: 'Name and URL are required' });
@@ -190,6 +190,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         http_method: method as any,
         request_body: request_body || undefined,
         request_headers: request_headers || undefined,
+        follow_redirects: follow_redirects !== false,
+        keep_cookies: keep_cookies !== false,
         check_interval,
         timeout,
         status: 'unknown',
