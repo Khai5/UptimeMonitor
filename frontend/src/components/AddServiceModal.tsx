@@ -163,7 +163,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                   <textarea
                     value={formData.request_body}
                     onChange={(e) => setFormData({ ...formData, request_body: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-gray-900 text-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                     placeholder='parameter1=first_value&parameter2=another_value'
                     rows={4}
                   />
@@ -211,7 +211,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                         type="text"
                         value={header.name}
                         onChange={(e) => updateHeader(index, 'name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-gray-100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={index === 0 ? 'Content-Type' : index === 1 ? 'Authorization' : 'Referer'}
                       />
                     </div>
@@ -223,7 +223,7 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
                         type="text"
                         value={header.value}
                         onChange={(e) => updateHeader(index, 'value', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-900 text-gray-100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={index === 0 ? 'application/json' : index === 1 ? 'Bearer your-token' : 'https://example.com'}
                       />
                     </div>
