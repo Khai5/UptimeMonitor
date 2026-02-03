@@ -98,9 +98,19 @@ export class ServiceModel {
       .map(key => `${key} = ?`)
       .join(', ');
 
+    // Convert boolean values to integers for SQLite compatibility
     const values = Object.entries(updates)
       .filter(([key]) => key !== 'id')
-      .map(([, value]) => value);
+      .map(([key, value]) => {
+        if (key === 'follow_redirects' || key === 'keep_cookies') {
+          return value ? 1 : 0;
+        }
+        return value;
+      });
+
+    if (fields.length === 0) {
+      return; // Nothing to update
+    }
 
     const stmt = db.prepare(`
       UPDATE services
