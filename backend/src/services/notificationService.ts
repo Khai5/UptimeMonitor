@@ -63,20 +63,60 @@ export class NotificationService {
   private async sendEmail(subject: string, html: string): Promise<void> {
     if (!this.config) throw new Error('Notification config not set');
 
-    if (this.mailgunClient && this.config.mailgun) {
-      await this.mailgunClient.messages.create(this.config.mailgun.domain, {
-        from: this.config.from,
-        to: this.config.to,
-        subject,
-        html,
-      });
-    } else if (this.transporter) {
-      await this.transporter.sendMail({
-        from: this.config.from,
-        to: this.config.to.join(', '),
-        subject,
-        html,
-      });
+    const recipients = this.config.to;
+    if (recipients.length === 0) {
+      console.warn('No email recipients configured (EMAIL_TO is empty)');
+      return;
+    }
+
+    const errors: { recipient: string; error: unknown }[] = [];
+
+    // Send individually to each recipient so one failure doesn't block others
+    for (const recipient of recipients) {
+      try {
+        if (this.mailgunClient && this.config.mailgun) {
+          await this.mailgunClient.messages.create(this.config.mailgun.domain, {
+            from: this.config.from,
+            to: [recipient],
+            subject,
+            html,
+          });
+        } else if (this.transporter) {
+          await this.transporter.sendMail({
+            from: this.config.from,
+            to: recipient,
+            subject,
+            html,
+          });
+        }
+        console.log(`Email sent successfully to ${recipient}`);
+      } catch (error) {
+        console.error(`Failed to send email to ${recipient}:`, error);
+        if (this.mailgunClient && this.config.mailgun) {
+          const domain = this.config.mailgun.domain;
+          if (domain.includes('mailgun.org')) {
+            console.error(
+              `Hint: You are using a Mailgun sandbox domain (${domain}). ` +
+              `Sandbox domains can only send to authorized recipients. ` +
+              `Add ${recipient} as an authorized recipient in your Mailgun dashboard, ` +
+              `or use a custom verified domain.`
+            );
+          }
+        }
+        errors.push({ recipient, error });
+      }
+    }
+
+    if (errors.length === recipients.length) {
+      // All sends failed
+      throw new Error(
+        `Failed to send email to all recipients: ${errors.map((e) => e.recipient).join(', ')}`
+      );
+    } else if (errors.length > 0) {
+      console.warn(
+        `Email sent to ${recipients.length - errors.length}/${recipients.length} recipients. ` +
+        `Failed: ${errors.map((e) => e.recipient).join(', ')}`
+      );
     }
   }
 
