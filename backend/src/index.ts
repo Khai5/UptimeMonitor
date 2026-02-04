@@ -7,6 +7,7 @@ import { initializeDatabase } from './database/schema';
 import { createRouter } from './api/routes';
 import { NotificationService, NotificationConfig } from './services/notificationService';
 import { MonitoringService } from './services/monitoringService';
+import { AppSettingsModel } from './models/Service';
 
 // Load environment variables
 dotenv.config();
@@ -58,6 +59,12 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
     },
   };
   console.log('Using SMTP for email notifications');
+}
+
+// Seed alert_emails in database from EMAIL_TO env var if not already set,
+// so the admin UI starts with the correct recipients.
+if (emailTo.length > 0 && !AppSettingsModel.get('alert_emails')) {
+  AppSettingsModel.set('alert_emails', emailTo.join(', '));
 }
 
 const notificationService = new NotificationService(notificationConfig);

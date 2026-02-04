@@ -87,8 +87,8 @@ function SettingsModal({ password, onClose }: SettingsModalProps) {
               Alert Email Recipients
             </h3>
             <p className="text-xs text-gray-500 mb-2">
-              Comma-separated email addresses to receive alerts. These are configured via the
-              EMAIL_TO environment variable on the server. The value shown here is for reference.
+              Comma-separated email addresses to receive alerts. Changes take effect immediately
+              after saving.
             </p>
             <input
               type="text"

@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import Mailgun from 'mailgun.js';
 import FormData from 'form-data';
-import { Service, Incident } from '../models/Service';
+import { Service, Incident, AppSettingsModel } from '../models/Service';
 
 export interface SmtpConfig {
   host: string;
@@ -60,12 +60,21 @@ export class NotificationService {
     return !!(this.transporter || this.mailgunClient);
   }
 
+  private getRecipients(): string[] {
+    // Read from database setting first (editable via admin UI), fall back to env var config
+    const dbEmails = AppSettingsModel.get('alert_emails');
+    if (dbEmails) {
+      return dbEmails.split(',').map((e) => e.trim()).filter(Boolean);
+    }
+    return this.config?.to || [];
+  }
+
   private async sendEmail(subject: string, html: string): Promise<void> {
     if (!this.config) throw new Error('Notification config not set');
 
-    const recipients = this.config.to;
+    const recipients = this.getRecipients();
     if (recipients.length === 0) {
-      console.warn('No email recipients configured (EMAIL_TO is empty)');
+      console.warn('No email recipients configured. Set them in admin settings or EMAIL_TO env var.');
       return;
     }
 
