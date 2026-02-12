@@ -97,6 +97,17 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE services ADD COLUMN keep_cookies INTEGER DEFAULT 1");
   }
 
+  // Migration: add alert_type, alert_keyword, alert_http_statuses columns
+  if (!columns.some(col => col.name === 'alert_type')) {
+    db.exec("ALTER TABLE services ADD COLUMN alert_type TEXT DEFAULT 'unavailable'");
+  }
+  if (!columns.some(col => col.name === 'alert_keyword')) {
+    db.exec("ALTER TABLE services ADD COLUMN alert_keyword TEXT");
+  }
+  if (!columns.some(col => col.name === 'alert_http_statuses')) {
+    db.exec("ALTER TABLE services ADD COLUMN alert_http_statuses TEXT");
+  }
+
   // Create app_settings table for admin password, email config, etc.
   db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (

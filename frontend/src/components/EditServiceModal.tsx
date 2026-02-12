@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HttpMethod, Service } from '../types';
+import { AlertType, HttpMethod, Service } from '../types';
 
 interface EditServiceModalProps {
   service: Service;
@@ -13,6 +13,13 @@ const TIMEOUT_OPTIONS = [
   { value: 30, label: '30 seconds' },
   { value: 60, label: '1 minute' },
   { value: 120, label: '2 minutes' },
+];
+
+const ALERT_TYPE_OPTIONS: { value: AlertType; label: string }[] = [
+  { value: 'unavailable', label: 'URL becomes unavailable' },
+  { value: 'not_contains_keyword', label: "URL doesn't contain keyword" },
+  { value: 'contains_keyword', label: 'URL contains keyword' },
+  { value: 'http_status_other_than', label: 'URL returns HTTP status other than' },
 ];
 
 interface HeaderPair {
@@ -59,6 +66,9 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
     keep_cookies: service.keep_cookies !== false && (service.keep_cookies as unknown) !== 0,
     check_interval: service.check_interval,
     timeout: service.timeout,
+    alert_type: (service.alert_type || 'unavailable') as AlertType,
+    alert_keyword: service.alert_keyword || '',
+    alert_http_statuses: service.alert_http_statuses || '200',
   });
 
   const [headers, setHeaders] = useState<HeaderPair[]>(
@@ -89,6 +99,12 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
       ...formData,
       request_body: formData.request_body || undefined,
       request_headers: requestHeaders,
+      alert_keyword: formData.alert_type === 'contains_keyword' || formData.alert_type === 'not_contains_keyword'
+        ? formData.alert_keyword || undefined
+        : undefined,
+      alert_http_statuses: formData.alert_type === 'http_status_other_than'
+        ? formData.alert_http_statuses || undefined
+        : undefined,
     });
   };
 
@@ -138,6 +154,64 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
                 placeholder="https://example.com/api/health"
                 required
               />
+            </div>
+
+            {/* Alert Options Section */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Alert options</h3>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Send alert when
+                </label>
+                <select
+                  value={formData.alert_type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, alert_type: e.target.value as AlertType })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {ALERT_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(formData.alert_type === 'contains_keyword' || formData.alert_type === 'not_contains_keyword') && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Keyword
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.alert_keyword}
+                    onChange={(e) => setFormData({ ...formData, alert_keyword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., error, success, OK"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    The keyword to search for in the response body.
+                  </p>
+                </div>
+              )}
+
+              {formData.alert_type === 'http_status_other_than' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expected HTTP status codes
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.alert_http_statuses}
+                    onChange={(e) => setFormData({ ...formData, alert_http_statuses: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="200, 201, 301"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Comma-separated list of acceptable HTTP status codes. An alert is triggered if the response status is not in this list.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Request Parameters Section */}

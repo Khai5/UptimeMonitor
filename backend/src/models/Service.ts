@@ -2,6 +2,8 @@ import db from '../database/schema';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
+export type AlertType = 'unavailable' | 'not_contains_keyword' | 'contains_keyword' | 'http_status_other_than';
+
 export interface Service {
   id?: number;
   name: string;
@@ -13,6 +15,9 @@ export interface Service {
   keep_cookies: boolean;
   check_interval: number;
   timeout: number;
+  alert_type: AlertType;
+  alert_keyword?: string;
+  alert_http_statuses?: string;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -59,8 +64,8 @@ export interface DowntimeLog {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -73,6 +78,9 @@ export class ServiceModel {
       service.keep_cookies !== false ? 1 : 0,
       service.check_interval,
       service.timeout,
+      service.alert_type || 'unavailable',
+      service.alert_keyword || null,
+      service.alert_http_statuses || null,
       service.status
     );
 
