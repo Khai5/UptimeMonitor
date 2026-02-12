@@ -11,6 +11,7 @@ export interface HealthCheckResult {
 export class HealthChecker {
   static async checkService(service: Service): Promise<HealthCheckResult> {
     const startTime = Date.now();
+    const alertType = service.alert_type || 'unavailable';
 
     try {
       const method = (service.http_method || 'GET').toLowerCase() as string;
@@ -34,16 +35,21 @@ export class HealthChecker {
       const followRedirects = service.follow_redirects !== false && (service.follow_redirects as unknown) !== 0;
       const keepCookies = service.keep_cookies !== false && (service.keep_cookies as unknown) !== 0;
 
+      // Need response body for keyword-based alert types
+      const needsBody = alertType === 'contains_keyword' || alertType === 'not_contains_keyword';
+
       // Build request config
       const requestConfig: AxiosRequestConfig = {
         method: method as AxiosRequestConfig['method'],
         url: service.url,
         timeout: service.timeout * 1000,
-        validateStatus: (status: number) => status < 500,
+        validateStatus: alertType === 'http_status_other_than' ? () => true : (status: number) => status < 500,
         headers,
         maxRedirects: followRedirects ? 5 : 0,
         // Enable credentials for cookie handling
         withCredentials: keepCookies,
+        // Ensure we get text response for keyword checks
+        ...(needsBody ? { responseType: 'text', transformResponse: [(data: string) => data] } : {}),
       };
 
       // Add request body for methods that support it
@@ -70,15 +76,49 @@ export class HealthChecker {
 
       const responseTime = Date.now() - startTime;
 
-      // Determine status based on response
+      // Determine status based on alert type
       let status: HealthCheckResult['status'];
+      let errorMessage: string | undefined;
 
-      if (response.status >= 200 && response.status < 300) {
-        status = 'operational';
-      } else if (response.status >= 300 && response.status < 500) {
-        status = 'operational'; // Redirects and client errors are still considered operational
+      if (alertType === 'contains_keyword') {
+        // Alert when the response CONTAINS the keyword (treat as down)
+        const keyword = service.alert_keyword || '';
+        const body = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        if (keyword && body.includes(keyword)) {
+          status = 'down';
+          errorMessage = `Response contains keyword "${keyword}"`;
+        } else {
+          status = 'operational';
+        }
+      } else if (alertType === 'not_contains_keyword') {
+        // Alert when the response does NOT contain the keyword (treat as down)
+        const keyword = service.alert_keyword || '';
+        const body = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        if (keyword && !body.includes(keyword)) {
+          status = 'down';
+          errorMessage = `Response does not contain keyword "${keyword}"`;
+        } else {
+          status = 'operational';
+        }
+      } else if (alertType === 'http_status_other_than') {
+        // Alert when status code is NOT in the expected list
+        const expectedStatuses = (service.alert_http_statuses || '200')
+          .split(',')
+          .map(s => parseInt(s.trim(), 10))
+          .filter(n => !isNaN(n));
+        if (!expectedStatuses.includes(response.status)) {
+          status = 'down';
+          errorMessage = `HTTP ${response.status} (expected ${expectedStatuses.join(', ')})`;
+        } else {
+          status = 'operational';
+        }
       } else {
-        status = 'down';
+        // Default: 'unavailable' - original behavior
+        if (response.status >= 200 && response.status < 500) {
+          status = 'operational';
+        } else {
+          status = 'down';
+        }
       }
 
       // Check if response time is too slow (degraded performance)
@@ -90,6 +130,7 @@ export class HealthChecker {
         status,
         response_time: responseTime,
         status_code: response.status,
+        ...(errorMessage ? { error_message: errorMessage } : {}),
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -106,6 +147,21 @@ export class HealthChecker {
         }
 
         if (axiosError.response) {
+          // For http_status_other_than, a 5xx response might still be an "expected" status
+          if (alertType === 'http_status_other_than') {
+            const expectedStatuses = (service.alert_http_statuses || '200')
+              .split(',')
+              .map(s => parseInt(s.trim(), 10))
+              .filter(n => !isNaN(n));
+            if (expectedStatuses.includes(axiosError.response.status)) {
+              return {
+                status: 'operational',
+                response_time: responseTime,
+                status_code: axiosError.response.status,
+              };
+            }
+          }
+
           // Server responded with error status
           return {
             status: 'down',

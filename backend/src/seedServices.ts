@@ -22,6 +22,7 @@ const sampleServices = [
     keep_cookies: true,
     check_interval: 60,
     timeout: 30,
+    alert_type: 'unavailable' as const,
     status: 'unknown' as const,
   },
   {
@@ -32,6 +33,7 @@ const sampleServices = [
     keep_cookies: true,
     check_interval: 60,
     timeout: 30,
+    alert_type: 'unavailable' as const,
     status: 'unknown' as const,
   },
   {
@@ -42,6 +44,7 @@ const sampleServices = [
     keep_cookies: true,
     check_interval: 60,
     timeout: 30,
+    alert_type: 'unavailable' as const,
     status: 'unknown' as const,
   },
   {
@@ -52,6 +55,7 @@ const sampleServices = [
     keep_cookies: true,
     check_interval: 60,
     timeout: 30,
+    alert_type: 'unavailable' as const,
     status: 'unknown' as const,
   },
 ];

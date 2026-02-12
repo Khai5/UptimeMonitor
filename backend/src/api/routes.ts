@@ -160,7 +160,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   // Admin: Create new service
   router.post('/admin/services', requireAdmin, (req: Request, res: Response) => {
     try {
-      const { name, url, http_method = 'GET', request_body, request_headers, follow_redirects = true, keep_cookies = true, check_interval = 900, timeout = 30 } = req.body;
+      const { name, url, http_method = 'GET', request_body, request_headers, follow_redirects = true, keep_cookies = true, check_interval = 900, timeout = 30, alert_type = 'unavailable', alert_keyword, alert_http_statuses } = req.body;
 
       if (!name || !url) {
         res.status(400).json({ error: 'Name and URL are required' });
@@ -184,6 +184,9 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         }
       }
 
+      const validAlertTypes = ['unavailable', 'not_contains_keyword', 'contains_keyword', 'http_status_other_than'];
+      const alertTypeValue = validAlertTypes.includes(alert_type) ? alert_type : 'unavailable';
+
       const service = ServiceModel.create({
         name,
         url,
@@ -194,6 +197,9 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         keep_cookies: keep_cookies !== false,
         check_interval,
         timeout,
+        alert_type: alertTypeValue,
+        alert_keyword: alert_keyword || undefined,
+        alert_http_statuses: alert_http_statuses || undefined,
         status: 'unknown',
       });
 
