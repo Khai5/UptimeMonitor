@@ -1,11 +1,19 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { Service } from '../models/Service';
+import { SslChecker, SslCheckResult } from './sslChecker';
+import { DomainChecker, DomainCheckResult } from './domainChecker';
 
 export interface HealthCheckResult {
   status: 'operational' | 'degraded' | 'down';
   response_time?: number;
   status_code?: number;
   error_message?: string;
+  ssl_valid?: boolean;
+  ssl_expires_at?: string;
+  ssl_issuer?: string;
+  ssl_days_remaining?: number;
+  domain_valid?: boolean;
+  domain_error?: string;
 }
 
 export class HealthChecker {
@@ -126,27 +134,28 @@ export class HealthChecker {
         status = 'degraded';
       }
 
-      return {
+      const httpResult: HealthCheckResult = {
         status,
         response_time: responseTime,
         status_code: response.status,
         ...(errorMessage ? { error_message: errorMessage } : {}),
       };
+
+      return this.performSslDomainChecks(service, httpResult);
     } catch (error) {
       const responseTime = Date.now() - startTime;
+      let errorResult: HealthCheckResult;
 
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError;
 
         if (axiosError.code === 'ECONNABORTED') {
-          return {
+          errorResult = {
             status: 'down',
             response_time: responseTime,
             error_message: 'Request timeout',
           };
-        }
-
-        if (axiosError.response) {
+        } else if (axiosError.response) {
           // For http_status_other_than, a 5xx response might still be an "expected" status
           if (alertType === 'http_status_other_than') {
             const expectedStatuses = (service.alert_http_statuses || '200')
@@ -154,40 +163,115 @@ export class HealthChecker {
               .map(s => parseInt(s.trim(), 10))
               .filter(n => !isNaN(n));
             if (expectedStatuses.includes(axiosError.response.status)) {
-              return {
+              errorResult = {
                 status: 'operational',
                 response_time: responseTime,
                 status_code: axiosError.response.status,
               };
+              return this.performSslDomainChecks(service, errorResult);
             }
           }
 
           // Server responded with error status
-          return {
+          errorResult = {
             status: 'down',
             response_time: responseTime,
             status_code: axiosError.response.status,
             error_message: `HTTP ${axiosError.response.status}: ${axiosError.response.statusText}`,
           };
-        }
-
-        if (axiosError.request) {
+        } else if (axiosError.request) {
           // Request was made but no response received
-          return {
+          errorResult = {
             status: 'down',
             response_time: responseTime,
             error_message: axiosError.message || 'No response received',
           };
+        } else {
+          errorResult = {
+            status: 'down',
+            response_time: responseTime,
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+          };
         }
+      } else {
+        // Other errors
+        errorResult = {
+          status: 'down',
+          response_time: responseTime,
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+        };
       }
 
-      // Other errors
-      return {
-        status: 'down',
-        response_time: responseTime,
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.performSslDomainChecks(service, errorResult);
     }
+  }
+
+  /**
+   * Perform SSL and domain verification checks if enabled on the service.
+   * Enriches the result object with SSL/domain data and may change status to 'down'.
+   */
+  private static async performSslDomainChecks(
+    service: Service,
+    result: HealthCheckResult
+  ): Promise<HealthCheckResult> {
+    const verifySsl = service.verify_ssl === true || (service.verify_ssl as unknown) === 1;
+    const verifyDomain = service.verify_domain === true || (service.verify_domain as unknown) === 1;
+
+    // Domain verification
+    if (verifyDomain) {
+      try {
+        const domainResult: DomainCheckResult = await DomainChecker.check(service.url);
+        result.domain_valid = domainResult.valid;
+        if (!domainResult.valid) {
+          result.domain_error = domainResult.error;
+          result.status = 'down';
+          result.error_message = result.error_message
+            ? `${result.error_message}; Domain verification failed: ${domainResult.error}`
+            : `Domain verification failed: ${domainResult.error}`;
+        }
+      } catch (err) {
+        result.domain_valid = false;
+        result.domain_error = err instanceof Error ? err.message : 'Domain check failed';
+      }
+    }
+
+    // SSL verification
+    if (verifySsl && service.url.startsWith('https://')) {
+      try {
+        const sslResult: SslCheckResult = await SslChecker.check(service.url, service.timeout * 1000);
+        result.ssl_valid = sslResult.valid;
+        result.ssl_expires_at = sslResult.expires_at;
+        result.ssl_issuer = sslResult.issuer;
+        result.ssl_days_remaining = sslResult.days_remaining;
+
+        if (!sslResult.valid) {
+          result.status = 'down';
+          const sslError = sslResult.error || 'SSL certificate invalid';
+          result.error_message = result.error_message
+            ? `${result.error_message}; SSL: ${sslError}`
+            : `SSL: ${sslError}`;
+        } else if (sslResult.days_remaining != null) {
+          const threshold = service.ssl_expiry_threshold || 30;
+          if (sslResult.days_remaining <= threshold) {
+            // Certificate expiring soon - mark as degraded if currently operational
+            if (result.status === 'operational') {
+              result.status = 'degraded';
+            }
+            result.error_message = result.error_message
+              ? `${result.error_message}; SSL certificate expires in ${sslResult.days_remaining} days`
+              : `SSL certificate expires in ${sslResult.days_remaining} days`;
+          }
+        }
+      } catch (err) {
+        result.ssl_valid = false;
+        const errMsg = err instanceof Error ? err.message : 'SSL check failed';
+        result.error_message = result.error_message
+          ? `${result.error_message}; SSL: ${errMsg}`
+          : `SSL: ${errMsg}`;
+      }
+    }
+
+    return result;
   }
 
   static async checkMultipleServices(services: Service[]): Promise<Map<number, HealthCheckResult>> {

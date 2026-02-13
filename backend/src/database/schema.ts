@@ -108,6 +108,40 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE services ADD COLUMN alert_http_statuses TEXT");
   }
 
+  // Migration: add SSL verification columns
+  if (!columns.some(col => col.name === 'verify_ssl')) {
+    db.exec("ALTER TABLE services ADD COLUMN verify_ssl INTEGER DEFAULT 0");
+  }
+  if (!columns.some(col => col.name === 'ssl_expiry_threshold')) {
+    db.exec("ALTER TABLE services ADD COLUMN ssl_expiry_threshold INTEGER DEFAULT 30");
+  }
+
+  // Migration: add domain verification column
+  if (!columns.some(col => col.name === 'verify_domain')) {
+    db.exec("ALTER TABLE services ADD COLUMN verify_domain INTEGER DEFAULT 0");
+  }
+
+  // Migration: add SSL/domain result columns to service_checks
+  const checkColumns = db.prepare("PRAGMA table_info(service_checks)").all() as { name: string }[];
+  if (!checkColumns.some(col => col.name === 'ssl_valid')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN ssl_valid INTEGER");
+  }
+  if (!checkColumns.some(col => col.name === 'ssl_expires_at')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN ssl_expires_at TEXT");
+  }
+  if (!checkColumns.some(col => col.name === 'ssl_issuer')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN ssl_issuer TEXT");
+  }
+  if (!checkColumns.some(col => col.name === 'ssl_days_remaining')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN ssl_days_remaining INTEGER");
+  }
+  if (!checkColumns.some(col => col.name === 'domain_valid')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN domain_valid INTEGER");
+  }
+  if (!checkColumns.some(col => col.name === 'domain_error')) {
+    db.exec("ALTER TABLE service_checks ADD COLUMN domain_error TEXT");
+  }
+
   // Create app_settings table for admin password, email config, etc.
   db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (

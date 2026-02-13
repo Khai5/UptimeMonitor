@@ -19,13 +19,19 @@ export class MonitoringService {
     // Perform health check
     const result = await HealthChecker.checkService(service);
 
-    // Record the check
+    // Record the check (including SSL/domain data)
     ServiceCheckModel.create({
       service_id: service.id,
       status: result.status,
       response_time: result.response_time,
       status_code: result.status_code,
       error_message: result.error_message,
+      ssl_valid: result.ssl_valid,
+      ssl_expires_at: result.ssl_expires_at,
+      ssl_issuer: result.ssl_issuer,
+      ssl_days_remaining: result.ssl_days_remaining,
+      domain_valid: result.domain_valid,
+      domain_error: result.domain_error,
     });
 
     // Get current service status

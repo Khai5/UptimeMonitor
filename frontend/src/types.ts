@@ -16,6 +16,9 @@ export interface Service {
   alert_type: AlertType;
   alert_keyword?: string;
   alert_http_statuses?: string;
+  verify_ssl: boolean;
+  ssl_expiry_threshold: number;
+  verify_domain: boolean;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -38,6 +41,12 @@ export interface ServiceCheck {
   response_time?: number;
   status_code?: number;
   error_message?: string;
+  ssl_valid?: boolean;
+  ssl_expires_at?: string;
+  ssl_issuer?: string;
+  ssl_days_remaining?: number;
+  domain_valid?: boolean;
+  domain_error?: string;
   checked_at: string;
 }
 

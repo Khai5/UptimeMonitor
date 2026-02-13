@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp, FaLock, FaGlobe } from 'react-icons/fa';
 import { Service, DowntimeLog } from '../types';
 import { adminApi } from '../api';
 import DowntimeLogPanel from './DowntimeLogPanel';
@@ -88,6 +88,16 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
                 {service.http_method && service.http_method !== 'GET' && (
                   <span className="inline-block bg-gray-200 text-gray-700 text-xs font-mono px-1.5 py-0.5 rounded mr-1.5">
                     {service.http_method}
+                  </span>
+                )}
+                {(service.verify_ssl === true || (service.verify_ssl as unknown) === 1) && (
+                  <span className="inline-flex items-center gap-0.5 bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded mr-1.5" title="SSL verification enabled">
+                    <FaLock className="text-[10px]" /> SSL
+                  </span>
+                )}
+                {(service.verify_domain === true || (service.verify_domain as unknown) === 1) && (
+                  <span className="inline-flex items-center gap-0.5 bg-purple-100 text-purple-700 text-xs px-1.5 py-0.5 rounded mr-1.5" title="Domain verification enabled">
+                    <FaGlobe className="text-[10px]" /> DNS
                   </span>
                 )}
                 {service.url}

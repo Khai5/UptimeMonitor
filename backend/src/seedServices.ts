@@ -23,6 +23,9 @@ const sampleServices = [
     check_interval: 60,
     timeout: 30,
     alert_type: 'unavailable' as const,
+    verify_ssl: false,
+    ssl_expiry_threshold: 30,
+    verify_domain: false,
     status: 'unknown' as const,
   },
   {
@@ -34,6 +37,9 @@ const sampleServices = [
     check_interval: 60,
     timeout: 30,
     alert_type: 'unavailable' as const,
+    verify_ssl: false,
+    ssl_expiry_threshold: 30,
+    verify_domain: false,
     status: 'unknown' as const,
   },
   {
@@ -45,6 +51,9 @@ const sampleServices = [
     check_interval: 60,
     timeout: 30,
     alert_type: 'unavailable' as const,
+    verify_ssl: false,
+    ssl_expiry_threshold: 30,
+    verify_domain: false,
     status: 'unknown' as const,
   },
   {
@@ -56,6 +65,9 @@ const sampleServices = [
     check_interval: 60,
     timeout: 30,
     alert_type: 'unavailable' as const,
+    verify_ssl: false,
+    ssl_expiry_threshold: 30,
+    verify_domain: false,
     status: 'unknown' as const,
   },
 ];
