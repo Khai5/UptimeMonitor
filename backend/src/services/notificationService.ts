@@ -135,11 +135,21 @@ export class NotificationService {
       return;
     }
 
-    const subject = `🚨 Service Down Alert: ${service.name}`;
+    // Determine if this is an SSL/domain specific issue for better subject lines
+    const errorMsg = incident.error_message || '';
+    const isSslIssue = errorMsg.includes('SSL');
+    const isDomainIssue = errorMsg.includes('Domain verification failed');
+
+    let alertTitle = 'Service Down';
+    if (isSslIssue && !isDomainIssue) alertTitle = 'SSL Certificate Issue';
+    else if (isDomainIssue && !isSslIssue) alertTitle = 'Domain Verification Failed';
+    else if (isSslIssue && isDomainIssue) alertTitle = 'SSL & Domain Issues';
+
+    const subject = `🚨 ${alertTitle}: ${service.name}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #dc2626; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 24px;">⚠️ Service Down</h1>
+          <h1 style="margin: 0; font-size: 24px;">⚠️ ${alertTitle}</h1>
         </div>
         <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1f2937; margin-top: 0;">${service.name}</h2>

@@ -18,6 +18,9 @@ export interface Service {
   alert_type: AlertType;
   alert_keyword?: string;
   alert_http_statuses?: string;
+  verify_ssl: boolean;
+  ssl_expiry_threshold: number;
+  verify_domain: boolean;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -32,6 +35,12 @@ export interface ServiceCheck {
   response_time?: number;
   status_code?: number;
   error_message?: string;
+  ssl_valid?: boolean;
+  ssl_expires_at?: string;
+  ssl_issuer?: string;
+  ssl_days_remaining?: number;
+  domain_valid?: boolean;
+  domain_error?: string;
   checked_at?: string;
 }
 
@@ -64,8 +73,8 @@ export interface DowntimeLog {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, verify_ssl, ssl_expiry_threshold, verify_domain, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -81,6 +90,9 @@ export class ServiceModel {
       service.alert_type || 'unavailable',
       service.alert_keyword || null,
       service.alert_http_statuses || null,
+      service.verify_ssl ? 1 : 0,
+      service.ssl_expiry_threshold || 30,
+      service.verify_domain ? 1 : 0,
       service.status
     );
 
@@ -110,7 +122,7 @@ export class ServiceModel {
     const values = Object.entries(updates)
       .filter(([key]) => key !== 'id')
       .map(([key, value]) => {
-        if (key === 'follow_redirects' || key === 'keep_cookies') {
+        if (key === 'follow_redirects' || key === 'keep_cookies' || key === 'verify_ssl' || key === 'verify_domain') {
           return value ? 1 : 0;
         }
         return value;
@@ -155,8 +167,8 @@ export class ServiceModel {
 export class ServiceCheckModel {
   static create(check: Omit<ServiceCheck, 'id'>): ServiceCheck {
     const stmt = db.prepare(`
-      INSERT INTO service_checks (service_id, status, response_time, status_code, error_message)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO service_checks (service_id, status, response_time, status_code, error_message, ssl_valid, ssl_expires_at, ssl_issuer, ssl_days_remaining, domain_valid, domain_error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -164,7 +176,13 @@ export class ServiceCheckModel {
       check.status,
       check.response_time || null,
       check.status_code || null,
-      check.error_message || null
+      check.error_message || null,
+      check.ssl_valid != null ? (check.ssl_valid ? 1 : 0) : null,
+      check.ssl_expires_at || null,
+      check.ssl_issuer || null,
+      check.ssl_days_remaining != null ? check.ssl_days_remaining : null,
+      check.domain_valid != null ? (check.domain_valid ? 1 : 0) : null,
+      check.domain_error || null
     );
 
     return {
