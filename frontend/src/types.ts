@@ -76,6 +76,31 @@ export interface DowntimeLog {
   recent_incidents: Incident[];
 }
 
+export type OnCallRecurrence = 'none' | 'daily' | 'weekly';
+
+export interface OnCallContact {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OnCallSchedule {
+  id: number;
+  contact_id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  recurrence: OnCallRecurrence;
+  contact_name: string;
+  contact_email: string;
+  contact_phone?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface OverallStatus {
   status: 'operational' | 'degraded' | 'down';
   total_services: number;

@@ -142,6 +142,33 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE service_checks ADD COLUMN domain_error TEXT");
   }
 
+  // On-call contacts table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS on_call_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // On-call schedules table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS on_call_schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contact_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME NOT NULL,
+      recurrence TEXT DEFAULT 'none',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (contact_id) REFERENCES on_call_contacts(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create app_settings table for admin password, email config, etc.
   db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -165,6 +192,11 @@ export function initializeDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_incidents_service_id
     ON incidents(service_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_on_call_schedules_contact_id
+    ON on_call_schedules(contact_id);
   `);
 
   console.log('Database initialized successfully');

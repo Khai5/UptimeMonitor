@@ -1,4 +1,4 @@
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope, FaUserClock } from 'react-icons/fa';
 import { Service, OverallStatus } from '../types';
 import ServiceCard from './ServiceCard';
 
@@ -14,6 +14,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
   onOpenSettings: () => void;
   onTestEmail: () => void;
+  onOpenOnCall: () => void;
 }
 
 function AdminDashboard({
@@ -28,6 +29,7 @@ function AdminDashboard({
   onLogout,
   onOpenSettings,
   onTestEmail,
+  onOpenOnCall,
 }: AdminDashboardProps) {
   const getStatusIcon = () => {
     if (!overallStatus) return null;
@@ -68,6 +70,14 @@ function AdminDashboard({
       <div className="flex justify-between items-center mb-6 bg-gray-800 text-white px-4 py-3 rounded-lg">
         <span className="font-medium">Admin Mode</span>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={onOpenOnCall}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded transition-colors text-sm"
+            title="On-call management"
+          >
+            <FaUserClock />
+            <span>On-Call</span>
+          </button>
           <button
             onClick={onTestEmail}
             className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"

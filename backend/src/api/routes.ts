@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, DowntimeLog } from '../models/Service';
+import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, DowntimeLog, OnCallContactModel, OnCallScheduleModel } from '../models/Service';
 import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
@@ -482,6 +482,154 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         error: 'Failed to send test email',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
+    }
+  });
+
+  // ========== ON-CALL CONTACTS ==========
+
+  // List all on-call contacts
+  router.get('/admin/oncall/contacts', requireAdmin, (req: Request, res: Response) => {
+    try {
+      res.json(OnCallContactModel.getAll());
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch on-call contacts' });
+    }
+  });
+
+  // Create on-call contact
+  router.post('/admin/oncall/contacts', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const { name, email, phone } = req.body;
+      if (!name || !email) {
+        res.status(400).json({ error: 'Name and email are required' });
+        return;
+      }
+      const contact = OnCallContactModel.create({ name, email, phone });
+      res.status(201).json(contact);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create on-call contact' });
+    }
+  });
+
+  // Update on-call contact
+  router.put('/admin/oncall/contacts/:id', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const contact = OnCallContactModel.getById(id);
+      if (!contact) {
+        res.status(404).json({ error: 'Contact not found' });
+        return;
+      }
+      const { name, email, phone } = req.body;
+      OnCallContactModel.update(id, { name, email, phone });
+      res.json(OnCallContactModel.getById(id));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update on-call contact' });
+    }
+  });
+
+  // Delete on-call contact
+  router.delete('/admin/oncall/contacts/:id', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const contact = OnCallContactModel.getById(id);
+      if (!contact) {
+        res.status(404).json({ error: 'Contact not found' });
+        return;
+      }
+      OnCallContactModel.delete(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete on-call contact' });
+    }
+  });
+
+  // ========== ON-CALL SCHEDULES ==========
+
+  // Get current on-call person
+  router.get('/admin/oncall/current', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const current = OnCallScheduleModel.getCurrentOnCall();
+      res.json({ current });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to determine current on-call' });
+    }
+  });
+
+  // List all on-call schedules
+  router.get('/admin/oncall/schedules', requireAdmin, (req: Request, res: Response) => {
+    try {
+      res.json(OnCallScheduleModel.getAll());
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch on-call schedules' });
+    }
+  });
+
+  // Create on-call schedule
+  router.post('/admin/oncall/schedules', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const { contact_id, name, start_time, end_time, recurrence = 'none' } = req.body;
+      if (!contact_id || !name || !start_time || !end_time) {
+        res.status(400).json({ error: 'contact_id, name, start_time, and end_time are required' });
+        return;
+      }
+      const contact = OnCallContactModel.getById(parseInt(contact_id));
+      if (!contact) {
+        res.status(400).json({ error: 'Contact not found' });
+        return;
+      }
+      const validRecurrences = ['none', 'daily', 'weekly'];
+      if (!validRecurrences.includes(recurrence)) {
+        res.status(400).json({ error: 'recurrence must be one of: none, daily, weekly' });
+        return;
+      }
+      if (new Date(start_time) >= new Date(end_time)) {
+        res.status(400).json({ error: 'start_time must be before end_time' });
+        return;
+      }
+      const schedule = OnCallScheduleModel.create({ contact_id: parseInt(contact_id), name, start_time, end_time, recurrence });
+      res.status(201).json(OnCallScheduleModel.getById(schedule.id!));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create on-call schedule' });
+    }
+  });
+
+  // Update on-call schedule
+  router.put('/admin/oncall/schedules/:id', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const schedule = OnCallScheduleModel.getById(id);
+      if (!schedule) {
+        res.status(404).json({ error: 'Schedule not found' });
+        return;
+      }
+      const { contact_id, name, start_time, end_time, recurrence } = req.body;
+      const updates: Record<string, any> = {};
+      if (contact_id !== undefined) updates.contact_id = parseInt(contact_id);
+      if (name !== undefined) updates.name = name;
+      if (start_time !== undefined) updates.start_time = start_time;
+      if (end_time !== undefined) updates.end_time = end_time;
+      if (recurrence !== undefined) updates.recurrence = recurrence;
+      OnCallScheduleModel.update(id, updates);
+      res.json(OnCallScheduleModel.getById(id));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update on-call schedule' });
+    }
+  });
+
+  // Delete on-call schedule
+  router.delete('/admin/oncall/schedules/:id', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const schedule = OnCallScheduleModel.getById(id);
+      if (!schedule) {
+        res.status(404).json({ error: 'Schedule not found' });
+        return;
+      }
+      OnCallScheduleModel.delete(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete on-call schedule' });
     }
   });
 
