@@ -381,6 +381,173 @@ export class IncidentModel {
   }
 }
 
+export type OnCallRecurrence = 'none' | 'daily' | 'weekly';
+
+export interface OnCallContact {
+  id?: number;
+  name: string;
+  email: string;
+  phone?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OnCallSchedule {
+  id?: number;
+  contact_id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  recurrence: OnCallRecurrence;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OnCallScheduleWithContact extends OnCallSchedule {
+  contact_name: string;
+  contact_email: string;
+  contact_phone?: string;
+}
+
+export class OnCallContactModel {
+  static create(contact: Omit<OnCallContact, 'id'>): OnCallContact {
+    const stmt = db.prepare(`
+      INSERT INTO on_call_contacts (name, email, phone)
+      VALUES (?, ?, ?)
+    `);
+    const result = stmt.run(contact.name, contact.email, contact.phone || null);
+    return { id: result.lastInsertRowid as number, ...contact };
+  }
+
+  static getAll(): OnCallContact[] {
+    return db.prepare('SELECT * FROM on_call_contacts ORDER BY name ASC').all() as OnCallContact[];
+  }
+
+  static getById(id: number): OnCallContact | undefined {
+    return db.prepare('SELECT * FROM on_call_contacts WHERE id = ?').get(id) as OnCallContact | undefined;
+  }
+
+  static update(id: number, updates: Partial<OnCallContact>): void {
+    const fields = Object.keys(updates)
+      .filter(k => !['id', 'created_at'].includes(k))
+      .map(k => `${k} = ?`)
+      .join(', ');
+    const values = Object.entries(updates)
+      .filter(([k]) => !['id', 'created_at'].includes(k))
+      .map(([, v]) => v);
+    if (!fields) return;
+    db.prepare(`UPDATE on_call_contacts SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
+  }
+
+  static delete(id: number): void {
+    db.prepare('DELETE FROM on_call_contacts WHERE id = ?').run(id);
+  }
+}
+
+export class OnCallScheduleModel {
+  static create(schedule: Omit<OnCallSchedule, 'id'>): OnCallSchedule {
+    const stmt = db.prepare(`
+      INSERT INTO on_call_schedules (contact_id, name, start_time, end_time, recurrence)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      schedule.contact_id,
+      schedule.name,
+      schedule.start_time,
+      schedule.end_time,
+      schedule.recurrence || 'none'
+    );
+    return { id: result.lastInsertRowid as number, ...schedule };
+  }
+
+  static getAll(): OnCallScheduleWithContact[] {
+    return db.prepare(`
+      SELECT s.*, c.name AS contact_name, c.email AS contact_email, c.phone AS contact_phone
+      FROM on_call_schedules s
+      JOIN on_call_contacts c ON c.id = s.contact_id
+      ORDER BY s.start_time ASC
+    `).all() as OnCallScheduleWithContact[];
+  }
+
+  static getById(id: number): OnCallScheduleWithContact | undefined {
+    return db.prepare(`
+      SELECT s.*, c.name AS contact_name, c.email AS contact_email, c.phone AS contact_phone
+      FROM on_call_schedules s
+      JOIN on_call_contacts c ON c.id = s.contact_id
+      WHERE s.id = ?
+    `).get(id) as OnCallScheduleWithContact | undefined;
+  }
+
+  static update(id: number, updates: Partial<OnCallSchedule>): void {
+    const fields = Object.keys(updates)
+      .filter(k => !['id', 'created_at'].includes(k))
+      .map(k => `${k} = ?`)
+      .join(', ');
+    const values = Object.entries(updates)
+      .filter(([k]) => !['id', 'created_at'].includes(k))
+      .map(([, v]) => v);
+    if (!fields) return;
+    db.prepare(`UPDATE on_call_schedules SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, id);
+  }
+
+  static delete(id: number): void {
+    db.prepare('DELETE FROM on_call_schedules WHERE id = ?').run(id);
+  }
+
+  /**
+   * Determine who is currently on-call based on active schedule windows.
+   * For recurrence='none': on-call if now is between start_time and end_time.
+   * For recurrence='weekly': repeats every week; checks if current day-of-week and
+   *   time-of-day fall within the original window's day+time range.
+   * For recurrence='daily': repeats every day; checks if current time-of-day falls
+   *   within the original window's time range.
+   * Returns the first matching schedule (by start_time ascending).
+   */
+  static getCurrentOnCall(): OnCallScheduleWithContact | null {
+    const schedules = this.getAll();
+    const now = new Date();
+
+    for (const schedule of schedules) {
+      const start = new Date(schedule.start_time);
+      const end = new Date(schedule.end_time);
+
+      if (schedule.recurrence === 'none') {
+        if (now >= start && now <= end) return schedule;
+      } else if (schedule.recurrence === 'daily') {
+        // Compare only time-of-day (hours + minutes)
+        const startHM = start.getUTCHours() * 60 + start.getUTCMinutes();
+        const endHM = end.getUTCHours() * 60 + end.getUTCMinutes();
+        const nowHM = now.getUTCHours() * 60 + now.getUTCMinutes();
+        if (startHM <= endHM) {
+          if (nowHM >= startHM && nowHM <= endHM) return schedule;
+        } else {
+          // Overnight window (e.g. 22:00–06:00)
+          if (nowHM >= startHM || nowHM <= endHM) return schedule;
+        }
+      } else if (schedule.recurrence === 'weekly') {
+        // Compare day-of-week and time-of-day
+        const startDay = start.getUTCDay();
+        const endDay = end.getUTCDay();
+        const startHM = start.getUTCHours() * 60 + start.getUTCMinutes();
+        const endHM = end.getUTCHours() * 60 + end.getUTCMinutes();
+        const nowDay = now.getUTCDay();
+        const nowHM = now.getUTCHours() * 60 + now.getUTCMinutes();
+        const nowTotal = nowDay * 1440 + nowHM;
+        const startTotal = startDay * 1440 + startHM;
+        const endTotal = endDay * 1440 + endHM;
+        if (startTotal <= endTotal) {
+          if (nowTotal >= startTotal && nowTotal <= endTotal) return schedule;
+        } else {
+          // Wraps across week boundary
+          if (nowTotal >= startTotal || nowTotal <= endTotal) return schedule;
+        }
+      }
+    }
+
+    return null;
+  }
+}
+
 export class AppSettingsModel {
   static get(key: string): string | undefined {
     const stmt = db.prepare('SELECT value FROM app_settings WHERE key = ?');

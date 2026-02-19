@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Service, PublicService, ServiceCheck, Incident, OverallStatus, DowntimeLog } from './types';
+import { Service, PublicService, ServiceCheck, Incident, OverallStatus, DowntimeLog, OnCallContact, OnCallSchedule } from './types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -56,4 +56,26 @@ export const adminApi = {
     api.post('/admin/change-password', { new_password: newPassword }, authHeaders(password)),
   sendTestEmail: (password: string) =>
     api.post('/admin/test-email', {}, authHeaders(password)),
+
+  // On-call contacts
+  getOnCallContacts: (password: string) =>
+    api.get<OnCallContact[]>('/admin/oncall/contacts', authHeaders(password)),
+  createOnCallContact: (password: string, contact: { name: string; email: string; phone?: string }) =>
+    api.post<OnCallContact>('/admin/oncall/contacts', contact, authHeaders(password)),
+  updateOnCallContact: (password: string, id: number, contact: { name: string; email: string; phone?: string }) =>
+    api.put<OnCallContact>(`/admin/oncall/contacts/${id}`, contact, authHeaders(password)),
+  deleteOnCallContact: (password: string, id: number) =>
+    api.delete(`/admin/oncall/contacts/${id}`, authHeaders(password)),
+
+  // On-call schedules
+  getOnCallSchedules: (password: string) =>
+    api.get<OnCallSchedule[]>('/admin/oncall/schedules', authHeaders(password)),
+  createOnCallSchedule: (password: string, schedule: { contact_id: number; name: string; start_time: string; end_time: string; recurrence: string }) =>
+    api.post<OnCallSchedule>('/admin/oncall/schedules', schedule, authHeaders(password)),
+  updateOnCallSchedule: (password: string, id: number, schedule: Partial<{ contact_id: number; name: string; start_time: string; end_time: string; recurrence: string }>) =>
+    api.put<OnCallSchedule>(`/admin/oncall/schedules/${id}`, schedule, authHeaders(password)),
+  deleteOnCallSchedule: (password: string, id: number) =>
+    api.delete(`/admin/oncall/schedules/${id}`, authHeaders(password)),
+  getCurrentOnCall: (password: string) =>
+    api.get<{ current: OnCallSchedule | null }>('/admin/oncall/current', authHeaders(password)),
 };

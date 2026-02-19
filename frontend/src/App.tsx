@@ -7,6 +7,7 @@ import AdminLogin from './components/AdminLogin';
 import AddServiceModal from './components/AddServiceModal';
 import EditServiceModal from './components/EditServiceModal';
 import SettingsModal from './components/SettingsModal';
+import OnCallModal from './components/OnCallModal';
 
 function App() {
   // Determine mode from URL path
@@ -27,6 +28,7 @@ function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOnCallOpen, setIsOnCallOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [checkingServiceId, setCheckingServiceId] = useState<number | null>(null);
@@ -209,6 +211,7 @@ function App() {
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onTestEmail={handleTestEmail}
+        onOpenOnCall={() => setIsOnCallOpen(true)}
       />
 
       {isAddModalOpen && (
@@ -230,6 +233,13 @@ function App() {
         <SettingsModal
           password={adminPassword}
           onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
+
+      {isOnCallOpen && (
+        <OnCallModal
+          password={adminPassword}
+          onClose={() => setIsOnCallOpen(false)}
         />
       )}
     </div>

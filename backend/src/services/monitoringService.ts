@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { ServiceModel, ServiceCheckModel, IncidentModel, Service } from '../models/Service';
+import { ServiceModel, ServiceCheckModel, IncidentModel, Service, OnCallScheduleModel } from '../models/Service';
 import { HealthChecker } from './healthChecker';
 import { NotificationService } from './notificationService';
 
@@ -66,9 +66,15 @@ export class MonitoringService {
         notification_sent: false,
       });
 
+      // Get current on-call contact for additional notification
+      const onCallContact = OnCallScheduleModel.getCurrentOnCall();
+      if (onCallContact) {
+        console.log(`📟 On-call: ${onCallContact.contact_name} <${onCallContact.contact_email}>`);
+      }
+
       // Send notification
       try {
-        await this.notificationService.sendServiceDownAlert(service, incident);
+        await this.notificationService.sendServiceDownAlert(service, incident, onCallContact ?? undefined);
         IncidentModel.markNotificationSent(incident.id!);
       } catch (error) {
         console.error('Failed to send down notification:', error);
@@ -87,7 +93,8 @@ export class MonitoringService {
         // Send recovery notification
         try {
           const resolvedIncident = IncidentModel.getByServiceId(serviceId, 1)[0];
-          await this.notificationService.sendServiceRecoveredAlert(service, resolvedIncident);
+          const onCallContact = OnCallScheduleModel.getCurrentOnCall();
+          await this.notificationService.sendServiceRecoveredAlert(service, resolvedIncident, onCallContact ?? undefined);
         } catch (error) {
           console.error('Failed to send recovery notification:', error);
         }
