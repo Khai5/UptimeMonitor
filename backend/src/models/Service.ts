@@ -548,6 +548,26 @@ export class OnCallScheduleModel {
   }
 }
 
+export class SessionModel {
+  static create(token: string, expiresAt: string): void {
+    db.prepare(`
+      INSERT INTO admin_sessions (token, expires_at) VALUES (?, ?)
+    `).run(token, expiresAt);
+  }
+
+  static find(token: string): { token: string; expires_at: string } | undefined {
+    return db.prepare('SELECT * FROM admin_sessions WHERE token = ?').get(token) as { token: string; expires_at: string } | undefined;
+  }
+
+  static delete(token: string): void {
+    db.prepare('DELETE FROM admin_sessions WHERE token = ?').run(token);
+  }
+
+  static deleteExpired(): void {
+    db.prepare("DELETE FROM admin_sessions WHERE expires_at < datetime('now')").run();
+  }
+}
+
 export class AppSettingsModel {
   static get(key: string): string | undefined {
     const stmt = db.prepare('SELECT value FROM app_settings WHERE key = ?');

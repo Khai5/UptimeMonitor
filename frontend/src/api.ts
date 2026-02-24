@@ -18,8 +18,9 @@ export const publicApi = {
 
 // ========== AUTH API ==========
 export const authApi = {
-  login: (password: string) => api.post<{ success: boolean; firstTime?: boolean }>('/auth/login', { password }),
+  login: (password: string) => api.post<{ success: boolean; firstTime?: boolean; token: string }>('/auth/login', { password }),
   getStatus: () => api.get<{ passwordSet: boolean }>('/auth/status'),
+  logout: (token: string) => api.post('/auth/logout', {}, authHeaders(token)),
 };
 
 // ========== ADMIN API (requires password) ==========

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, DowntimeLog, OnCallContactModel, OnCallScheduleModel } from '../models/Service';
+import bcrypt from 'bcrypt';
+import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, SessionModel, DowntimeLog, OnCallContactModel, OnCallScheduleModel } from '../models/Service';
 import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
@@ -14,7 +15,27 @@ function sanitizeServiceForPublic(service: any): { id: number; name: string; sta
   };
 }
 
-// Admin auth middleware: checks Bearer token against stored admin_password_hash
+// Simple in-memory rate limiter for login attempts
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function loginLimiter(req: Request, res: Response, next: NextFunction): void {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (record && now < record.resetAt) {
+    if (record.count >= 10) {
+      res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+      return;
+    }
+    record.count++;
+  } else {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  }
+  next();
+}
+
+// Admin auth middleware: validates session token
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -23,23 +44,26 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   }
 
   const token = authHeader.slice(7);
-  const storedHash = AppSettingsModel.get('admin_password_hash');
+  const session = SessionModel.find(token);
 
-  if (!storedHash) {
-    // No password set yet — first-time setup: accept any password and set it
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    AppSettingsModel.set('admin_password_hash', hash);
-    next();
-    return;
-  }
-
-  const providedHash = crypto.createHash('sha256').update(token).digest('hex');
-  if (providedHash !== storedHash) {
-    res.status(403).json({ error: 'Invalid admin password' });
+  if (!session || new Date(session.expires_at) < new Date()) {
+    if (session) SessionModel.delete(token);
+    res.status(401).json({ error: 'Session expired or invalid. Please log in again.' });
     return;
   }
 
   next();
+}
+
+// Returns true if hash is a legacy SHA256 hex string (pre-bcrypt)
+function isLegacySha256Hash(hash: string): boolean {
+  return /^[a-f0-9]{64}$/.test(hash);
+}
+
+function generateSessionToken(): { token: string; expiresAt: string } {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  return { token, expiresAt };
 }
 
 export function createRouter(monitoringService: MonitoringService, notificationService: NotificationService): Router {
@@ -88,7 +112,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
 
   // ========== AUTH ==========
   // Verify admin password (used by frontend login)
-  router.post('/auth/login', (req: Request, res: Response) => {
+  router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
     try {
       const { password } = req.body;
       if (!password) {
@@ -99,20 +123,37 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       const storedHash = AppSettingsModel.get('admin_password_hash');
 
       if (!storedHash) {
-        // First time — set the password
-        const hash = crypto.createHash('sha256').update(password).digest('hex');
+        // First time — hash with bcrypt and set the password
+        const hash = await bcrypt.hash(password, 12);
         AppSettingsModel.set('admin_password_hash', hash);
-        res.json({ success: true, firstTime: true });
+        const { token, expiresAt } = generateSessionToken();
+        SessionModel.create(token, expiresAt);
+        res.json({ success: true, firstTime: true, token });
         return;
       }
 
-      const providedHash = crypto.createHash('sha256').update(password).digest('hex');
-      if (providedHash !== storedHash) {
+      // Support migrating legacy SHA256 hashes to bcrypt on first login
+      let valid = false;
+      if (isLegacySha256Hash(storedHash)) {
+        const sha256Hash = crypto.createHash('sha256').update(password).digest('hex');
+        valid = sha256Hash === storedHash;
+        if (valid) {
+          const newHash = await bcrypt.hash(password, 12);
+          AppSettingsModel.set('admin_password_hash', newHash);
+        }
+      } else {
+        valid = await bcrypt.compare(password, storedHash);
+      }
+
+      if (!valid) {
         res.status(403).json({ error: 'Invalid password' });
         return;
       }
 
-      res.json({ success: true });
+      const { token, expiresAt } = generateSessionToken();
+      SessionModel.create(token, expiresAt);
+      SessionModel.deleteExpired();
+      res.json({ success: true, token });
     } catch (error) {
       res.status(500).json({ error: 'Authentication failed' });
     }
@@ -126,6 +167,15 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     } catch (error) {
       res.status(500).json({ error: 'Failed to check auth status' });
     }
+  });
+
+  // Logout: invalidate the session token
+  router.post('/auth/logout', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      SessionModel.delete(authHeader.slice(7));
+    }
+    res.json({ success: true });
   });
 
   // ========== ADMIN ROUTES (require auth) ==========
@@ -448,7 +498,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   });
 
   // Admin: Change admin password
-  router.post('/admin/change-password', requireAdmin, (req: Request, res: Response) => {
+  router.post('/admin/change-password', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { new_password } = req.body;
       if (!new_password || new_password.length < 8) {
@@ -456,7 +506,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
-      const hash = crypto.createHash('sha256').update(new_password).digest('hex');
+      const hash = await bcrypt.hash(new_password, 12);
       AppSettingsModel.set('admin_password_hash', hash);
       res.json({ success: true });
     } catch (error) {

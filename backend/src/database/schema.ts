@@ -178,6 +178,15 @@ export function initializeDatabase() {
     )
   `);
 
+  // Admin sessions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      token TEXT PRIMARY KEY,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL
+    )
+  `);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_service_checks_service_id
