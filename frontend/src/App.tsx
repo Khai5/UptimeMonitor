@@ -90,20 +90,25 @@ function App() {
       setLoginError('');
       const res = await authApi.login(password);
       if (res.data.success) {
-        setAdminPassword(password);
+        setAdminPassword(res.data.token);
         setMode('admin');
         setIsLoading(true);
       }
     } catch (error: any) {
       if (error?.response?.status === 403) {
         setLoginError('Invalid password');
+      } else if (error?.response?.status === 429) {
+        setLoginError('Too many login attempts. Try again in 15 minutes.');
       } else {
         setLoginError('Login failed');
       }
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (adminPassword) {
+      try { await authApi.logout(adminPassword); } catch {}
+    }
     setAdminPassword('');
     setMode('public');
     setServices([]);
