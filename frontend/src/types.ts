@@ -101,6 +101,12 @@ export interface OnCallSchedule {
   updated_at?: string;
 }
 
+export interface AdminUser {
+  id: number;
+  username: string;
+  created_at: string;
+}
+
 export interface OverallStatus {
   status: 'operational' | 'degraded' | 'down';
   total_services: number;
