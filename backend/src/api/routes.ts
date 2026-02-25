@@ -110,6 +110,86 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
+  // Public: status badge (embeddable HTML pill — use as iframe src)
+  router.get('/public/badge', (req: Request, res: Response) => {
+    try {
+      const services = ServiceModel.getAll();
+      const anyDown = services.some((s) => s.status === 'down');
+      const anyDegraded = services.some((s) => s.status === 'degraded');
+      const theme = req.query.theme === 'dark' ? 'dark' : 'light';
+
+      let statusText: string;
+      let dotColor: string;
+      if (anyDown) {
+        statusText = 'Outage detected';
+        dotColor = '#ef4444';
+      } else if (anyDegraded) {
+        statusText = 'Some systems degraded';
+        dotColor = '#f59e0b';
+      } else {
+        statusText = 'All systems operational';
+        dotColor = '#22c55e';
+      }
+
+      const isDark = theme === 'dark';
+      const bg = isDark ? '#1f2937' : '#ffffff';
+      const border = isDark ? '#374151' : '#e5e7eb';
+      const textColor = isDark ? '#f9fafb' : '#374151';
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: transparent;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      border: 1px solid ${border};
+      background: ${bg};
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: ${textColor};
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: ${dotColor};
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="badge">
+    <span class="dot"></span>
+    <span>${statusText}</span>
+  </div>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('X-Frame-Options', 'ALLOWALL');
+      res.send(html);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to generate badge' });
+    }
+  });
+
   // ========== AUTH ==========
   // Verify admin credentials (used by frontend login)
   router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {

@@ -8,10 +8,17 @@ import AddServiceModal from './components/AddServiceModal';
 import EditServiceModal from './components/EditServiceModal';
 import SettingsModal from './components/SettingsModal';
 import OnCallModal from './components/OnCallModal';
+import EmbedPage from './components/EmbedPage';
 
 function App() {
   // Determine mode from URL path
+  const isEmbedPath = window.location.pathname.startsWith('/embed');
   const isAdminPath = window.location.pathname.startsWith('/admin');
+
+  // Render the minimal embed view for /embed route
+  if (isEmbedPath) {
+    return <EmbedPage />;
+  }
 
   const [mode, setMode] = useState<'public' | 'admin-login' | 'admin'>(
     isAdminPath ? 'admin-login' : 'public'
