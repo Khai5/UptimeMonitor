@@ -176,6 +176,9 @@ export class NotificationService {
           <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             This is an automated alert from your Uptime Monitor. The service will be continuously monitored and you'll be notified when it's back online.
           </p>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #dc2626; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+          </div>
         </div>
       </div>
     `;
@@ -210,6 +213,9 @@ export class NotificationService {
               <div style="background-color: #ede9fe; border-left: 4px solid #7c3aed; padding: 12px; border-radius: 4px; margin-top: 15px;">
                 <p style="margin: 0; color: #5b21b6; font-weight: bold;">You are the on-call engineer. Please investigate and resolve this incident.</p>
                 <p style="margin: 6px 0 0; color: #6d28d9; font-size: 14px;">On-call schedule: ${onCallContact.name}</p>
+              </div>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #7c3aed; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
               </div>
             </div>
           </div>
@@ -250,6 +256,9 @@ export class NotificationService {
           <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             The service is now back online and operational. Continuous monitoring will continue.
           </p>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+          </div>
         </div>
       </div>
     `;
@@ -281,6 +290,9 @@ export class NotificationService {
                 <p style="margin: 5px 0;"><strong>Recovered at:</strong> ${incident.resolved_at ? new Date(incident.resolved_at).toLocaleString() : 'N/A'}</p>
                 <p style="margin: 5px 0;"><strong>Downtime:</strong> ${durationMinutes}m ${durationSeconds}s</p>
               </div>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+              </div>
             </div>
           </div>
         `;
@@ -311,6 +323,9 @@ export class NotificationService {
           <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             Sent at: ${new Date().toLocaleString()}
           </p>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+          </div>
         </div>
       </div>
     `;
