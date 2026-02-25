@@ -110,6 +110,62 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
+  // Public: status badge (SVG image)
+  router.get('/public/badge', (req: Request, res: Response) => {
+    try {
+      const services = ServiceModel.getAll();
+      const anyDown = services.some((s) => s.status === 'down');
+      const anyDegraded = services.some((s) => s.status === 'degraded');
+
+      let statusText: string;
+      let statusColor: string;
+      if (anyDown) {
+        statusText = 'outage';
+        statusColor = '#ef4444';
+      } else if (anyDegraded) {
+        statusText = 'degraded';
+        statusColor = '#f59e0b';
+      } else {
+        statusText = 'operational';
+        statusColor = '#22c55e';
+      }
+
+      const leftLabel = 'status';
+      const leftWidth = 52;
+      const rightWidth = Math.max(62, statusText.length * 7 + 16);
+      const totalWidth = leftWidth + rightWidth;
+      const rightMid = leftWidth + rightWidth / 2;
+
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20" role="img" aria-label="${leftLabel}: ${statusText}">
+  <title>${leftLabel}: ${statusText}</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r">
+    <rect width="${totalWidth}" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${leftWidth}" height="20" fill="#555"/>
+    <rect x="${leftWidth}" width="${rightWidth}" height="20" fill="${statusColor}"/>
+    <rect width="${totalWidth}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
+    <text x="${leftWidth / 2}" y="15" fill="#010101" fill-opacity=".3">${leftLabel}</text>
+    <text x="${leftWidth / 2}" y="14">${leftLabel}</text>
+    <text x="${rightMid}" y="15" fill="#010101" fill-opacity=".3">${statusText}</text>
+    <text x="${rightMid}" y="14">${statusText}</text>
+  </g>
+</svg>`;
+
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(svg);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to generate badge' });
+    }
+  });
+
   // ========== AUTH ==========
   // Verify admin credentials (used by frontend login)
   router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
