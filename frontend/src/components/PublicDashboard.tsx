@@ -13,7 +13,7 @@ function EmbedModal({ onClose }: { onClose: () => void }) {
 
   const origin = window.location.origin;
   const iframeCode = `<iframe\n  src="${origin}/embed"\n  width="480"\n  height="300"\n  frameborder="0"\n  style="border-radius: 8px; border: 1px solid #e5e7eb;"\n  title="Service Status"\n></iframe>`;
-  const badgeCode = `<img src="${origin}/api/public/badge" alt="Service Status" />`;
+  const badgeCode = `<iframe\n  src="${origin}/api/public/badge?theme=light"\n  width="220"\n  height="28"\n  frameborder="0"\n  scrolling="no"\n  title="Service Status Badge"\n></iframe>`;
 
   const currentCode = activeTab === 'iframe' ? iframeCode : badgeCode;
 
@@ -84,7 +84,14 @@ function EmbedModal({ onClose }: { onClose: () => void }) {
           {activeTab === 'badge' && (
             <div className="mt-4">
               <p className="text-xs text-gray-500 mb-2">Preview:</p>
-              <img src={`${origin}/api/public/badge`} alt="Service Status" />
+              <iframe
+                src={`${origin}/api/public/badge?theme=light`}
+                width="220"
+                height="28"
+                frameBorder={0}
+                scrolling="no"
+                title="Service Status Badge"
+              />
             </div>
           )}
         </div>
