@@ -85,10 +85,10 @@ function App() {
     }
   }, [mode, adminPassword]);
 
-  const handleLogin = async (password: string) => {
+  const handleLogin = async (username: string, password: string) => {
     try {
       setLoginError('');
-      const res = await authApi.login(password);
+      const res = await authApi.login(username, password);
       if (res.data.success) {
         setAdminPassword(res.data.token);
         setMode('admin');
@@ -96,7 +96,7 @@ function App() {
       }
     } catch (error: any) {
       if (error?.response?.status === 403) {
-        setLoginError('Invalid password');
+        setLoginError('Invalid username or password');
       } else if (error?.response?.status === 429) {
         setLoginError('Too many login attempts. Try again in 15 minutes.');
       } else {

@@ -548,15 +548,55 @@ export class OnCallScheduleModel {
   }
 }
 
-export class SessionModel {
-  static create(token: string, expiresAt: string): void {
-    db.prepare(`
-      INSERT INTO admin_sessions (token, expires_at) VALUES (?, ?)
-    `).run(token, expiresAt);
+export interface AdminUser {
+  id: number;
+  username: string;
+  password_hash: string;
+  created_at: string;
+}
+
+export class AdminUserModel {
+  static create(username: string, passwordHash: string): AdminUser {
+    const stmt = db.prepare('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)');
+    const result = stmt.run(username, passwordHash);
+    return { id: result.lastInsertRowid as number, username, password_hash: passwordHash, created_at: new Date().toISOString() };
   }
 
-  static find(token: string): { token: string; expires_at: string } | undefined {
-    return db.prepare('SELECT * FROM admin_sessions WHERE token = ?').get(token) as { token: string; expires_at: string } | undefined;
+  static getAll(): Omit<AdminUser, 'password_hash'>[] {
+    return db.prepare('SELECT id, username, created_at FROM admin_users ORDER BY created_at ASC').all() as Omit<AdminUser, 'password_hash'>[];
+  }
+
+  static getByUsername(username: string): AdminUser | undefined {
+    return db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username) as AdminUser | undefined;
+  }
+
+  static getById(id: number): AdminUser | undefined {
+    return db.prepare('SELECT * FROM admin_users WHERE id = ?').get(id) as AdminUser | undefined;
+  }
+
+  static count(): number {
+    const row = db.prepare('SELECT COUNT(*) as count FROM admin_users').get() as { count: number };
+    return row.count;
+  }
+
+  static delete(id: number): void {
+    db.prepare('DELETE FROM admin_users WHERE id = ?').run(id);
+  }
+
+  static updatePassword(id: number, passwordHash: string): void {
+    db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(passwordHash, id);
+  }
+}
+
+export class SessionModel {
+  static create(token: string, expiresAt: string, userId: number): void {
+    db.prepare(`
+      INSERT INTO admin_sessions (token, expires_at, user_id) VALUES (?, ?, ?)
+    `).run(token, expiresAt, userId);
+  }
+
+  static find(token: string): { token: string; expires_at: string; user_id?: number } | undefined {
+    return db.prepare('SELECT * FROM admin_sessions WHERE token = ?').get(token) as { token: string; expires_at: string; user_id?: number } | undefined;
   }
 
   static delete(token: string): void {

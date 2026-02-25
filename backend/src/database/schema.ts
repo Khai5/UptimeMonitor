@@ -178,6 +178,16 @@ export function initializeDatabase() {
     )
   `);
 
+  // Admin users table (supports multiple admins)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Admin sessions table
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_sessions (
@@ -186,6 +196,22 @@ export function initializeDatabase() {
       expires_at DATETIME NOT NULL
     )
   `);
+
+  // Migration: add user_id column to admin_sessions if not present
+  const sessionColumns = db.prepare("PRAGMA table_info(admin_sessions)").all() as { name: string }[];
+  if (!sessionColumns.some(col => col.name === 'user_id')) {
+    db.exec("ALTER TABLE admin_sessions ADD COLUMN user_id INTEGER REFERENCES admin_users(id) ON DELETE CASCADE");
+  }
+
+  // Migration: move existing single admin password from app_settings into admin_users
+  const existingAdminCount = (db.prepare('SELECT COUNT(*) as count FROM admin_users').get() as { count: number }).count;
+  if (existingAdminCount === 0) {
+    const passwordHashRow = db.prepare("SELECT value FROM app_settings WHERE key = 'admin_password_hash'").get() as { value: string } | undefined;
+    if (passwordHashRow) {
+      db.prepare("INSERT INTO admin_users (username, password_hash) VALUES ('admin', ?)").run(passwordHashRow.value);
+      db.prepare("DELETE FROM app_settings WHERE key = 'admin_password_hash'").run();
+    }
+  }
 
   // Create indexes
   db.exec(`

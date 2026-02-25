@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../api';
+import { AdminUser } from '../types';
 
 interface SettingsModalProps {
   password: string;
@@ -14,8 +15,16 @@ function SettingsModal({ password, onClose }: SettingsModalProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState('');
 
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [newUsername, setNewUsername] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [adminMsg, setAdminMsg] = useState('');
+  const [adminMsgIsError, setAdminMsgIsError] = useState(false);
+  const [addingAdmin, setAddingAdmin] = useState(false);
+
   useEffect(() => {
     loadSettings();
+    loadAdmins();
   }, []);
 
   const loadSettings = async () => {
@@ -26,6 +35,15 @@ function SettingsModal({ password, onClose }: SettingsModalProps) {
       console.error('Failed to load settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAdmins = async () => {
+    try {
+      const res = await adminApi.getAdmins(password);
+      setAdmins(res.data);
+    } catch (error) {
+      console.error('Failed to load admins:', error);
     }
   };
 
@@ -58,6 +76,46 @@ function SettingsModal({ password, onClose }: SettingsModalProps) {
       setConfirmPassword('');
     } catch (error) {
       setPasswordMsg('Failed to change password');
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    setAdminMsg('');
+    setAdminMsgIsError(false);
+    if (!newUsername.trim()) {
+      setAdminMsg('Username is required');
+      setAdminMsgIsError(true);
+      return;
+    }
+    if (newAdminPassword.length < 8) {
+      setAdminMsg('Password must be at least 8 characters');
+      setAdminMsgIsError(true);
+      return;
+    }
+    setAddingAdmin(true);
+    try {
+      await adminApi.createAdmin(password, newUsername.trim(), newAdminPassword);
+      setAdminMsg(`Admin "${newUsername.trim()}" created successfully.`);
+      setNewUsername('');
+      setNewAdminPassword('');
+      await loadAdmins();
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Failed to create admin';
+      setAdminMsg(msg);
+      setAdminMsgIsError(true);
+    } finally {
+      setAddingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: number, username: string) => {
+    if (!confirm(`Delete admin "${username}"? This cannot be undone.`)) return;
+    try {
+      await adminApi.deleteAdmin(password, id);
+      await loadAdmins();
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Failed to delete admin';
+      alert(msg);
     }
   };
 
@@ -102,10 +160,65 @@ function SettingsModal({ password, onClose }: SettingsModalProps) {
             </p>
           </div>
 
-          {/* Change Password */}
+          {/* Admin Users */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">
-              Change Admin Password
+              Admin Users
+            </h3>
+
+            {/* Current admins list */}
+            <div className="mb-3 border border-gray-200 rounded-md divide-y divide-gray-100">
+              {admins.map((admin) => (
+                <div key={admin.id} className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-gray-800 font-medium">{admin.username}</span>
+                  <button
+                    onClick={() => handleDeleteAdmin(admin.id, admin.username)}
+                    disabled={admins.length <= 1}
+                    className="text-xs text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                    title={admins.length <= 1 ? 'Cannot delete the last admin' : `Delete ${admin.username}`}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add new admin */}
+            <p className="text-xs text-gray-500 mb-2">Add a new admin user:</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Username"
+              />
+              <input
+                type="password"
+                value={newAdminPassword}
+                onChange={(e) => setNewAdminPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Password (min 8 characters)"
+              />
+              {adminMsg && (
+                <p className={`text-sm ${adminMsgIsError ? 'text-red-600' : 'text-green-600'}`}>
+                  {adminMsg}
+                </p>
+              )}
+              <button
+                onClick={handleAddAdmin}
+                disabled={addingAdmin}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
+              >
+                {addingAdmin ? 'Adding...' : 'Add Admin'}
+              </button>
+            </div>
+          </div>
+
+          {/* Change Own Password */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">
+              Change Your Password
             </h3>
             <div className="space-y-2">
               <input

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Service, PublicService, ServiceCheck, Incident, OverallStatus, DowntimeLog, OnCallContact, OnCallSchedule } from './types';
+import { Service, PublicService, ServiceCheck, Incident, OverallStatus, DowntimeLog, OnCallContact, OnCallSchedule, AdminUser } from './types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -18,7 +18,7 @@ export const publicApi = {
 
 // ========== AUTH API ==========
 export const authApi = {
-  login: (password: string) => api.post<{ success: boolean; firstTime?: boolean; token: string }>('/auth/login', { password }),
+  login: (username: string, password: string) => api.post<{ success: boolean; firstTime?: boolean; token: string }>('/auth/login', { username, password }),
   getStatus: () => api.get<{ passwordSet: boolean }>('/auth/status'),
   logout: (token: string) => api.post('/auth/logout', {}, authHeaders(token)),
 };
@@ -57,6 +57,14 @@ export const adminApi = {
     api.post('/admin/change-password', { new_password: newPassword }, authHeaders(password)),
   sendTestEmail: (password: string) =>
     api.post('/admin/test-email', {}, authHeaders(password)),
+
+  // Admin user management
+  getAdmins: (password: string) =>
+    api.get<AdminUser[]>('/admin/admins', authHeaders(password)),
+  createAdmin: (password: string, username: string, newPassword: string) =>
+    api.post<AdminUser>('/admin/admins', { username, password: newPassword }, authHeaders(password)),
+  deleteAdmin: (password: string, id: number) =>
+    api.delete(`/admin/admins/${id}`, authHeaders(password)),
 
   // On-call contacts
   getOnCallContacts: (password: string) =>

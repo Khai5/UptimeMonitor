@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, SessionModel, DowntimeLog, OnCallContactModel, OnCallScheduleModel } from '../models/Service';
+import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, SessionModel, AdminUserModel, DowntimeLog, OnCallContactModel, OnCallScheduleModel } from '../models/Service';
 import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
@@ -111,47 +111,62 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   });
 
   // ========== AUTH ==========
-  // Verify admin password (used by frontend login)
+  // Verify admin credentials (used by frontend login)
   router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
     try {
-      const { password } = req.body;
+      const { username, password } = req.body;
       if (!password) {
         res.status(400).json({ error: 'Password is required' });
         return;
       }
 
-      const storedHash = AppSettingsModel.get('admin_password_hash');
+      const userCount = AdminUserModel.count();
 
-      if (!storedHash) {
-        // First time — hash with bcrypt and set the password
+      if (userCount === 0) {
+        // First time setup — create initial admin user
+        if (!username) {
+          res.status(400).json({ error: 'Username is required for initial setup' });
+          return;
+        }
         const hash = await bcrypt.hash(password, 12);
-        AppSettingsModel.set('admin_password_hash', hash);
+        const user = AdminUserModel.create(username, hash);
         const { token, expiresAt } = generateSessionToken();
-        SessionModel.create(token, expiresAt);
+        SessionModel.create(token, expiresAt, user.id);
         res.json({ success: true, firstTime: true, token });
+        return;
+      }
+
+      if (!username) {
+        res.status(400).json({ error: 'Username is required' });
+        return;
+      }
+
+      const user = AdminUserModel.getByUsername(username);
+      if (!user) {
+        res.status(403).json({ error: 'Invalid username or password' });
         return;
       }
 
       // Support migrating legacy SHA256 hashes to bcrypt on first login
       let valid = false;
-      if (isLegacySha256Hash(storedHash)) {
+      if (isLegacySha256Hash(user.password_hash)) {
         const sha256Hash = crypto.createHash('sha256').update(password).digest('hex');
-        valid = sha256Hash === storedHash;
+        valid = sha256Hash === user.password_hash;
         if (valid) {
           const newHash = await bcrypt.hash(password, 12);
-          AppSettingsModel.set('admin_password_hash', newHash);
+          AdminUserModel.updatePassword(user.id, newHash);
         }
       } else {
-        valid = await bcrypt.compare(password, storedHash);
+        valid = await bcrypt.compare(password, user.password_hash);
       }
 
       if (!valid) {
-        res.status(403).json({ error: 'Invalid password' });
+        res.status(403).json({ error: 'Invalid username or password' });
         return;
       }
 
       const { token, expiresAt } = generateSessionToken();
-      SessionModel.create(token, expiresAt);
+      SessionModel.create(token, expiresAt, user.id);
       SessionModel.deleteExpired();
       res.json({ success: true, token });
     } catch (error) {
@@ -159,11 +174,11 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
-  // Check if admin password has been set
+  // Check if any admin accounts have been set up
   router.get('/auth/status', (req: Request, res: Response) => {
     try {
-      const storedHash = AppSettingsModel.get('admin_password_hash');
-      res.json({ passwordSet: !!storedHash });
+      const count = AdminUserModel.count();
+      res.json({ passwordSet: count > 0 });
     } catch (error) {
       res.status(500).json({ error: 'Failed to check auth status' });
     }
@@ -497,7 +512,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
-  // Admin: Change admin password
+  // Admin: Change own password
   router.post('/admin/change-password', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { new_password } = req.body;
@@ -506,11 +521,82 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
+      const token = req.headers.authorization!.slice(7);
+      const session = SessionModel.find(token);
+      if (!session?.user_id) {
+        res.status(400).json({ error: 'Cannot determine current user' });
+        return;
+      }
+
       const hash = await bcrypt.hash(new_password, 12);
-      AppSettingsModel.set('admin_password_hash', hash);
+      AdminUserModel.updatePassword(session.user_id, hash);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to change password' });
+    }
+  });
+
+  // Admin: List all admin users
+  router.get('/admin/admins', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const admins = AdminUserModel.getAll();
+      res.json(admins);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch admins' });
+    }
+  });
+
+  // Admin: Create new admin user
+  router.post('/admin/admins', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        res.status(400).json({ error: 'Username and password are required' });
+        return;
+      }
+      if (password.length < 8) {
+        res.status(400).json({ error: 'Password must be at least 8 characters' });
+        return;
+      }
+      if (AdminUserModel.getByUsername(username)) {
+        res.status(409).json({ error: 'Username already exists' });
+        return;
+      }
+      const hash = await bcrypt.hash(password, 12);
+      const admin = AdminUserModel.create(username, hash);
+      res.status(201).json({ id: admin.id, username: admin.username, created_at: admin.created_at });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create admin' });
+    }
+  });
+
+  // Admin: Delete admin user
+  router.delete('/admin/admins/:id', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (AdminUserModel.count() <= 1) {
+        res.status(400).json({ error: 'Cannot delete the last admin user' });
+        return;
+      }
+
+      const token = req.headers.authorization!.slice(7);
+      const session = SessionModel.find(token);
+      if (session?.user_id === id) {
+        res.status(400).json({ error: 'Cannot delete your own account' });
+        return;
+      }
+
+      const admin = AdminUserModel.getById(id);
+      if (!admin) {
+        res.status(404).json({ error: 'Admin not found' });
+        return;
+      }
+
+      AdminUserModel.delete(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete admin' });
     }
   });
 
