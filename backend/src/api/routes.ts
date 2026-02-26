@@ -136,6 +136,10 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       const border = isDark ? '#374151' : '#e5e7eb';
       const textColor = isDark ? '#f9fafb' : '#374151';
 
+      const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] as string || req.headers.host || '';
+      const statusPageUrl = `${proto}://${host}/`;
+
       const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -163,6 +167,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       color: ${textColor};
       white-space: nowrap;
       line-height: 1;
+      text-decoration: none;
+      cursor: pointer;
     }
     .dot {
       width: 8px;
@@ -174,10 +180,10 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   </style>
 </head>
 <body>
-  <div class="badge">
+  <a href="${statusPageUrl}" target="_blank" rel="noopener noreferrer" class="badge">
     <span class="dot"></span>
     <span>${statusText}</span>
-  </div>
+  </a>
 </body>
 </html>`;
 
