@@ -1,18 +1,19 @@
 import { useState } from 'react';
 
 interface AdminLoginProps {
-  onLogin: (username: string, password: string) => void;
+  onLogin: (username: string, password: string, stayLoggedIn: boolean) => void;
   error: string;
 }
 
 function AdminLogin({ onLogin, error }: AdminLoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [stayLoggedIn, setStayLoggedIn] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (username && password) {
-      onLogin(username, password);
+      onLogin(username, password, stayLoggedIn);
     }
   };
 
@@ -52,6 +53,19 @@ function AdminLogin({ onLogin, error }: AdminLoginProps) {
               placeholder="Enter password"
               required
             />
+          </div>
+
+          <div className="mb-4 flex items-center">
+            <input
+              id="stay-logged-in"
+              type="checkbox"
+              checked={stayLoggedIn}
+              onChange={(e) => setStayLoggedIn(e.target.checked)}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="stay-logged-in" className="ml-2 text-sm text-gray-600 cursor-pointer select-none">
+              Stay logged in for 14 days
+            </label>
           </div>
 
           {error && (

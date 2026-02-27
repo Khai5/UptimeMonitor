@@ -20,10 +20,11 @@ function App() {
     return <EmbedPage />;
   }
 
+  const storedToken = localStorage.getItem('admin_token');
   const [mode, setMode] = useState<'public' | 'admin-login' | 'admin'>(
-    isAdminPath ? 'admin-login' : 'public'
+    storedToken ? 'admin' : isAdminPath ? 'admin-login' : 'public'
   );
-  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>(storedToken ?? '');
 
   // Public state
   const [publicServices, setPublicServices] = useState<PublicService[]>([]);
@@ -68,6 +69,7 @@ function App() {
       setOverallStatus(statusRes.data);
     } catch (error: any) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
+        localStorage.removeItem('admin_token');
         setMode('admin-login');
         setAdminPassword('');
         setLoginError('Session expired. Please log in again.');
@@ -92,12 +94,16 @@ function App() {
     }
   }, [mode, adminPassword]);
 
-  const handleLogin = async (username: string, password: string) => {
+  const handleLogin = async (username: string, password: string, stayLoggedIn = false) => {
     try {
       setLoginError('');
-      const res = await authApi.login(username, password);
+      const res = await authApi.login(username, password, stayLoggedIn);
       if (res.data.success) {
-        setAdminPassword(res.data.token);
+        const token = res.data.token;
+        if (stayLoggedIn) {
+          localStorage.setItem('admin_token', token);
+        }
+        setAdminPassword(token);
         setMode('admin');
         setIsLoading(true);
       }
@@ -116,6 +122,7 @@ function App() {
     if (adminPassword) {
       try { await authApi.logout(adminPassword); } catch {}
     }
+    localStorage.removeItem('admin_token');
     setAdminPassword('');
     setMode('public');
     setServices([]);

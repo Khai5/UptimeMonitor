@@ -18,7 +18,7 @@ export const publicApi = {
 
 // ========== AUTH API ==========
 export const authApi = {
-  login: (username: string, password: string) => api.post<{ success: boolean; firstTime?: boolean; token: string }>('/auth/login', { username, password }),
+  login: (username: string, password: string, rememberMe = false) => api.post<{ success: boolean; firstTime?: boolean; token: string }>('/auth/login', { username, password, rememberMe }),
   getStatus: () => api.get<{ passwordSet: boolean }>('/auth/status'),
   logout: (token: string) => api.post('/auth/logout', {}, authHeaders(token)),
 };

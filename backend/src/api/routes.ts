@@ -60,9 +60,12 @@ function isLegacySha256Hash(hash: string): boolean {
   return /^[a-f0-9]{64}$/.test(hash);
 }
 
-function generateSessionToken(): { token: string; expiresAt: string } {
+function generateSessionToken(rememberMe = false): { token: string; expiresAt: string } {
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const durationMs = rememberMe
+    ? 14 * 24 * 60 * 60 * 1000  // 14 days
+    : 24 * 60 * 60 * 1000;       // 24 hours
+  const expiresAt = new Date(Date.now() + durationMs).toISOString();
   return { token, expiresAt };
 }
 
@@ -200,7 +203,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   // Verify admin credentials (used by frontend login)
   router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
     try {
-      const { username, password } = req.body;
+      const { username, password, rememberMe } = req.body;
       if (!password) {
         res.status(400).json({ error: 'Password is required' });
         return;
@@ -216,7 +219,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         }
         const hash = await bcrypt.hash(password, 12);
         const user = AdminUserModel.create(username, hash);
-        const { token, expiresAt } = generateSessionToken();
+        const { token, expiresAt } = generateSessionToken(!!rememberMe);
         SessionModel.create(token, expiresAt, user.id);
         res.json({ success: true, firstTime: true, token });
         return;
@@ -251,7 +254,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
-      const { token, expiresAt } = generateSessionToken();
+      const { token, expiresAt } = generateSessionToken(!!rememberMe);
       SessionModel.create(token, expiresAt, user.id);
       SessionModel.deleteExpired();
       res.json({ success: true, token });
