@@ -64,7 +64,7 @@ function AdminLogin({ onLogin, error }: AdminLoginProps) {
               className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
             />
             <label htmlFor="stay-logged-in" className="ml-2 text-sm text-gray-600 cursor-pointer select-none">
-              Stay logged in for 30 days
+              Stay logged in for 14 days
             </label>
           </div>
 

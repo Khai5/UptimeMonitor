@@ -63,7 +63,7 @@ function isLegacySha256Hash(hash: string): boolean {
 function generateSessionToken(rememberMe = false): { token: string; expiresAt: string } {
   const token = crypto.randomBytes(32).toString('hex');
   const durationMs = rememberMe
-    ? 30 * 24 * 60 * 60 * 1000  // 30 days
+    ? 14 * 24 * 60 * 60 * 1000  // 14 days
     : 24 * 60 * 60 * 1000;       // 24 hours
   const expiresAt = new Date(Date.now() + durationMs).toISOString();
   return { token, expiresAt };
