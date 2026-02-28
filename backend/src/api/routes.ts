@@ -135,8 +135,6 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       }
 
       const isDark = theme === 'dark';
-      const bg = isDark ? '#1f2937' : '#ffffff';
-      const border = isDark ? '#374151' : '#e5e7eb';
       const textColor = isDark ? '#f9fafb' : '#374151';
 
       const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
@@ -159,13 +157,11 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 4px 12px;
-      border-radius: 9999px;
-      border: 1px solid ${border};
-      background: ${bg};
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 12px;
+      gap: 8px;
+      padding: 0;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      font-size: 15px;
       font-weight: 500;
       color: ${textColor};
       white-space: nowrap;
@@ -174,8 +170,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       cursor: pointer;
     }
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
       background: ${dotColor};
       flex-shrink: 0;
