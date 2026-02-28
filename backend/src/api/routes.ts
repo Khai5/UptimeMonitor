@@ -130,7 +130,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         statusText = 'Some systems degraded';
         dotColor = '#f59e0b';
       } else {
-        statusText = 'All systems operational';
+        statusText = 'All services are online';
         dotColor = '#22c55e';
       }
 
