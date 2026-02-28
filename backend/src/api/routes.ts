@@ -137,9 +137,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       const isDark = theme === 'dark';
       const textColor = isDark ? '#f9fafb' : '#374151';
 
-      const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] as string || req.headers.host || '';
-      const statusPageUrl = `${proto}://${host}/`;
+      const statusPageUrl = 'https://status.neuronpedia.org';
 
       const html = `<!DOCTYPE html>
 <html>
