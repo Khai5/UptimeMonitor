@@ -26,6 +26,22 @@ export interface NotificationConfig {
   mailgun?: MailgunConfig;
 }
 
+/** Strip HTML tags and collapse whitespace to produce a plain-text fallback. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|h[1-6]|li)[^>]*>/gi, '\n')
+    .replace(/<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi, '$2 ($1)')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export class NotificationService {
   private config?: NotificationConfig;
   private transporter?: nodemailer.Transporter;
@@ -69,6 +85,12 @@ export class NotificationService {
     return this.config?.to || [];
   }
 
+  /** Extract a bare email address from a "Display Name <email>" string. */
+  private extractEmail(from: string): string {
+    const match = from.match(/<([^>]+)>/);
+    return match ? match[1] : from;
+  }
+
   private async sendEmail(subject: string, html: string): Promise<void> {
     if (!this.config) throw new Error('Notification config not set');
 
@@ -77,6 +99,9 @@ export class NotificationService {
       console.warn('No email recipients configured. Set them in admin settings or EMAIL_TO env var.');
       return;
     }
+
+    const text = htmlToText(html);
+    const replyTo = this.extractEmail(this.config.from);
 
     const errors: { recipient: string; error: unknown }[] = [];
 
@@ -89,13 +114,23 @@ export class NotificationService {
             to: [recipient],
             subject,
             html,
+            text,
+            'h:Reply-To': replyTo,
+            'h:List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+            'h:X-Mailer': 'Uptime Monitor',
           });
         } else if (this.transporter) {
           await this.transporter.sendMail({
             from: this.config.from,
             to: recipient,
+            replyTo,
             subject,
             html,
+            text,
+            headers: {
+              'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+              'X-Mailer': 'Uptime Monitor',
+            },
           });
         }
         console.log(`Email sent successfully to ${recipient}`);
@@ -131,15 +166,34 @@ export class NotificationService {
 
   private async sendEmailToAddress(recipient: string, subject: string, html: string): Promise<void> {
     if (!this.config) throw new Error('Notification config not set');
+
+    const text = htmlToText(html);
+    const replyTo = this.extractEmail(this.config.from);
+
     if (this.mailgunClient && this.config.mailgun) {
       await this.mailgunClient.messages.create(this.config.mailgun.domain, {
         from: this.config.from,
         to: [recipient],
         subject,
         html,
+        text,
+        'h:Reply-To': replyTo,
+        'h:List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+        'h:X-Mailer': 'Uptime Monitor',
       });
     } else if (this.transporter) {
-      await this.transporter.sendMail({ from: this.config.from, to: recipient, subject, html });
+      await this.transporter.sendMail({
+        from: this.config.from,
+        to: recipient,
+        replyTo,
+        subject,
+        html,
+        text,
+        headers: {
+          'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+          'X-Mailer': 'Uptime Monitor',
+        },
+      });
     }
   }
 
@@ -159,11 +213,11 @@ export class NotificationService {
     else if (isDomainIssue && !isSslIssue) alertTitle = 'Domain Verification Failed';
     else if (isSslIssue && isDomainIssue) alertTitle = 'SSL & Domain Issues';
 
-    const subject = `🚨 ${alertTitle}: ${service.name}`;
+    const subject = `[Alert] ${alertTitle}: ${service.name}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #dc2626; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 24px;">⚠️ ${alertTitle}</h1>
+          <h1 style="margin: 0; font-size: 24px;">${alertTitle}</h1>
         </div>
         <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1f2937; margin-top: 0;">${service.name}</h2>
@@ -195,11 +249,11 @@ export class NotificationService {
     if (onCallContact && this.isConfigured) {
       const recipients = this.getRecipients();
       if (!recipients.includes(onCallContact.contact_email)) {
-        const onCallSubject = `📟 [ON-CALL] ${alertTitle}: ${service.name}`;
+        const onCallSubject = `[On-Call] ${alertTitle}: ${service.name}`;
         const onCallHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; font-size: 24px;">📟 On-Call Alert</h1>
+              <h1 style="margin: 0; font-size: 24px;">On-Call Alert</h1>
               <p style="margin: 8px 0 0; opacity: 0.9;">You are currently on-call (${onCallContact.name} – ${onCallContact.name})</p>
             </div>
             <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
@@ -239,11 +293,11 @@ export class NotificationService {
     const durationMinutes = incident.duration ? Math.floor(incident.duration / 60) : 0;
     const durationSeconds = incident.duration ? incident.duration % 60 : 0;
 
-    const subject = `✅ Service Recovered: ${service.name}`;
+    const subject = `[Resolved] Service Recovered: ${service.name}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 24px;">✅ Service Recovered</h1>
+          <h1 style="margin: 0; font-size: 24px;">Service Recovered</h1>
         </div>
         <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1f2937; margin-top: 0;">${service.name}</h2>
@@ -275,11 +329,11 @@ export class NotificationService {
     if (onCallContact && this.isConfigured) {
       const recipients = this.getRecipients();
       if (!recipients.includes(onCallContact.contact_email)) {
-        const onCallSubject = `📟 [ON-CALL] Service Recovered: ${service.name}`;
+        const onCallSubject = `[On-Call] Service Recovered: ${service.name}`;
         const onCallHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; font-size: 24px;">📟 On-Call – Service Recovered</h1>
+              <h1 style="margin: 0; font-size: 24px;">On-Call – Service Recovered</h1>
               <p style="margin: 8px 0 0; opacity: 0.9;">You are currently on-call (${onCallContact.name})</p>
             </div>
             <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
