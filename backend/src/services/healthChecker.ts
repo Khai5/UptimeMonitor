@@ -18,6 +18,23 @@ export interface HealthCheckResult {
 
 export class HealthChecker {
   static async checkService(service: Service): Promise<HealthCheckResult> {
+    const maxAttempts = Math.max(1, service.retry_count ?? 3);
+    const retryDelay = (service.retry_delay ?? 5) * 1000;
+
+    let result: HealthCheckResult | undefined;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+      result = await this.attemptCheck(service);
+      if (result.status !== 'down') {
+        return result;
+      }
+    }
+    return result!;
+  }
+
+  private static async attemptCheck(service: Service): Promise<HealthCheckResult> {
     const startTime = Date.now();
     const alertType = service.alert_type || 'unavailable';
 

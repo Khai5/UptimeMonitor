@@ -42,6 +42,8 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
     verify_ssl: false,
     ssl_expiry_threshold: 30,
     verify_domain: false,
+    retry_count: 3,
+    retry_delay: 5,
   });
 
   const [headers, setHeaders] = useState<HeaderPair[]>([
@@ -368,6 +370,49 @@ function AddServiceModal({ onClose, onAdd }: AddServiceModalProps) {
               >
                 + Add another header
               </button>
+            </div>
+
+            {/* Retries */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Retries</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Retry attempts
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.retry_count}
+                    onChange={(e) =>
+                      setFormData({ ...formData, retry_count: parseInt(e.target.value) || 0 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="10"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Number of retries before marking as down. 0 disables retries.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Delay between retries (seconds)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.retry_delay}
+                    onChange={(e) =>
+                      setFormData({ ...formData, retry_delay: parseInt(e.target.value) || 1 })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                    max="60"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    How long to wait between retry attempts.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Check Interval */}
