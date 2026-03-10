@@ -308,7 +308,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   // Admin: Create new service
   router.post('/admin/services', requireAdmin, (req: Request, res: Response) => {
     try {
-      const { name, url, http_method = 'GET', request_body, request_headers, follow_redirects = true, keep_cookies = true, check_interval = 900, timeout = 30, alert_type = 'unavailable', alert_keyword, alert_http_statuses, verify_ssl = false, ssl_expiry_threshold = 30, verify_domain = false } = req.body;
+      const { name, url, http_method = 'GET', request_body, request_headers, follow_redirects = true, keep_cookies = true, check_interval = 900, timeout = 30, alert_type = 'unavailable', alert_keyword, alert_http_statuses, verify_ssl = false, ssl_expiry_threshold = 30, verify_domain = false, retry_count = 3, retry_delay = 5 } = req.body;
 
       if (!name || !url) {
         res.status(400).json({ error: 'Name and URL are required' });
@@ -351,6 +351,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         verify_ssl: !!verify_ssl,
         ssl_expiry_threshold: ssl_expiry_threshold || 30,
         verify_domain: !!verify_domain,
+        retry_count: retry_count ?? 3,
+        retry_delay: retry_delay ?? 5,
         status: 'unknown',
       });
 
