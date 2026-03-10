@@ -35,7 +35,8 @@ let notificationConfig: NotificationConfig | undefined;
 const emailFrom = process.env.EMAIL_FROM || '';
 const emailTo = (process.env.EMAIL_TO || '').split(',').map((e) => e.trim()).filter(Boolean);
 
-const appUrl = process.env.APP_URL ? `${process.env.APP_URL}/admin` : undefined;
+const rawAppUrl = (process.env.APP_URL || '').replace(/\/$/, '');
+const appUrl = /^https?:\/\/.+/.test(rawAppUrl) ? `${rawAppUrl}/admin` : undefined;
 
 if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
   notificationConfig = {
