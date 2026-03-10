@@ -694,7 +694,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
-      await notificationService.sendTestEmail();
+      const requestBaseUrl = `${req.protocol}://${req.get('host')}/admin`;
+      await notificationService.sendTestEmail(requestBaseUrl);
       res.json({ success: true, message: 'Test email sent successfully' });
     } catch (error) {
       res.status(500).json({
