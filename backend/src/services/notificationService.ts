@@ -126,7 +126,9 @@ export class NotificationService {
             text,
             'h:Reply-To': replyTo,
             'h:List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
-            'h:X-Mailer': 'Uptime Monitor',
+            'h:List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            'h:Precedence': 'transactional',
+            'h:Auto-Submitted': 'auto-generated',
           });
         } else if (this.transporter) {
           await this.transporter.sendMail({
@@ -138,7 +140,9 @@ export class NotificationService {
             text,
             headers: {
               'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
-              'X-Mailer': 'Uptime Monitor',
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              'Precedence': 'transactional',
+              'Auto-Submitted': 'auto-generated',
             },
           });
         }
@@ -188,7 +192,9 @@ export class NotificationService {
         text,
         'h:Reply-To': replyTo,
         'h:List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
-        'h:X-Mailer': 'Uptime Monitor',
+        'h:List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'h:Precedence': 'transactional',
+        'h:Auto-Submitted': 'auto-generated',
       });
     } else if (this.transporter) {
       await this.transporter.sendMail({
@@ -200,7 +206,9 @@ export class NotificationService {
         text,
         headers: {
           'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
-          'X-Mailer': 'Uptime Monitor',
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          'Precedence': 'transactional',
+          'Auto-Submitted': 'auto-generated',
         },
       });
     }
@@ -222,7 +230,7 @@ export class NotificationService {
     else if (isDomainIssue && !isSslIssue) alertTitle = 'Domain Verification Failed';
     else if (isSslIssue && isDomainIssue) alertTitle = 'SSL & Domain Issues';
 
-    const subject = `[Alert] ${alertTitle}: ${service.name}`;
+    const subject = `${alertTitle}: ${service.name}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #dc2626; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -256,7 +264,7 @@ export class NotificationService {
     if (onCallContact && this.isConfigured) {
       const recipients = this.getRecipients();
       if (!recipients.includes(onCallContact.contact_email)) {
-        const onCallSubject = `[On-Call] ${alertTitle}: ${service.name}`;
+        const onCallSubject = `On-Call Alert - ${alertTitle}: ${service.name}`;
         const onCallHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -298,7 +306,7 @@ export class NotificationService {
     const durationMinutes = incident.duration ? Math.floor(incident.duration / 60) : 0;
     const durationSeconds = incident.duration ? incident.duration % 60 : 0;
 
-    const subject = `[Resolved] Service Recovered: ${service.name}`;
+    const subject = `Service Recovered: ${service.name}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -332,7 +340,7 @@ export class NotificationService {
     if (onCallContact && this.isConfigured) {
       const recipients = this.getRecipients();
       if (!recipients.includes(onCallContact.contact_email)) {
-        const onCallSubject = `[On-Call] Service Recovered: ${service.name}`;
+        const onCallSubject = `On-Call Alert - Service Recovered: ${service.name}`;
         const onCallHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
