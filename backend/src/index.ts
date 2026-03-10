@@ -35,6 +35,8 @@ let notificationConfig: NotificationConfig | undefined;
 const emailFrom = process.env.EMAIL_FROM || '';
 const emailTo = (process.env.EMAIL_TO || '').split(',').map((e) => e.trim()).filter(Boolean);
 
+const appUrl = process.env.APP_URL ? `${process.env.APP_URL}/admin` : undefined;
+
 if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
   notificationConfig = {
     from: emailFrom,
@@ -44,6 +46,7 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
       domain: process.env.MAILGUN_DOMAIN,
       eu: process.env.MAILGUN_EU === 'true',
     },
+    appUrl,
   };
   console.log('Using Mailgun for email notifications');
 } else if (process.env.SMTP_HOST) {
@@ -57,6 +60,7 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
       user: process.env.SMTP_USER || '',
       password: process.env.SMTP_PASSWORD || '',
     },
+    appUrl,
   };
   console.log('Using SMTP for email notifications');
 }
