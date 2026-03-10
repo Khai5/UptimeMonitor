@@ -361,10 +361,15 @@ export class NotificationService {
     }
   }
 
-  async sendTestEmail(): Promise<void> {
+  async sendTestEmail(requestBaseUrl?: string): Promise<void> {
     if (!this.isConfigured) {
       throw new Error('Email not configured');
     }
+
+    const effectiveAdminUrl = this.adminUrl || requestBaseUrl || '';
+    const button = effectiveAdminUrl
+      ? `<div style="text-align: center; margin-top: 20px;"><a href="${effectiveAdminUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a></div>`
+      : '';
 
     const subject = 'Uptime Monitor - Test Alert Email';
     const html = `
@@ -378,7 +383,7 @@ export class NotificationService {
           <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
             Sent at: ${new Date().toLocaleString()}
           </p>
-          ${this.adminButton('#2563eb')}
+          ${button}
         </div>
       </div>
     `;
