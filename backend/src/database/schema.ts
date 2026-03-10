@@ -121,6 +121,14 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE services ADD COLUMN verify_domain INTEGER DEFAULT 0");
   }
 
+  // Migration: add retry configuration columns
+  if (!columns.some(col => col.name === 'retry_count')) {
+    db.exec("ALTER TABLE services ADD COLUMN retry_count INTEGER DEFAULT 3");
+  }
+  if (!columns.some(col => col.name === 'retry_delay')) {
+    db.exec("ALTER TABLE services ADD COLUMN retry_delay INTEGER DEFAULT 5");
+  }
+
   // Migration: add SSL/domain result columns to service_checks
   const checkColumns = db.prepare("PRAGMA table_info(service_checks)").all() as { name: string }[];
   if (!checkColumns.some(col => col.name === 'ssl_valid')) {

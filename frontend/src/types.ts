@@ -19,6 +19,8 @@ export interface Service {
   verify_ssl: boolean;
   ssl_expiry_threshold: number;
   verify_domain: boolean;
+  retry_count: number;
+  retry_delay: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;

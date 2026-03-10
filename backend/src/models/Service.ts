@@ -21,6 +21,8 @@ export interface Service {
   verify_ssl: boolean;
   ssl_expiry_threshold: number;
   verify_domain: boolean;
+  retry_count: number;
+  retry_delay: number;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -73,8 +75,8 @@ export interface DowntimeLog {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, verify_ssl, ssl_expiry_threshold, verify_domain, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, verify_ssl, ssl_expiry_threshold, verify_domain, retry_count, retry_delay, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -93,6 +95,8 @@ export class ServiceModel {
       service.verify_ssl ? 1 : 0,
       service.ssl_expiry_threshold || 30,
       service.verify_domain ? 1 : 0,
+      service.retry_count ?? 3,
+      service.retry_delay ?? 5,
       service.status
     );
 
