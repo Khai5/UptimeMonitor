@@ -24,6 +24,8 @@ export interface NotificationConfig {
   /** Use one of smtp or mailgun. If both are provided, mailgun takes precedence. */
   smtp?: SmtpConfig;
   mailgun?: MailgunConfig;
+  /** Base URL of the admin dashboard, e.g. https://example.com/admin */
+  appUrl?: string;
 }
 
 /** Strip HTML tags and collapse whitespace to produce a plain-text fallback. */
@@ -46,9 +48,11 @@ export class NotificationService {
   private config?: NotificationConfig;
   private transporter?: nodemailer.Transporter;
   private mailgunClient?: ReturnType<InstanceType<typeof Mailgun>['client']>;
+  private adminUrl: string;
 
   constructor(config?: NotificationConfig) {
     this.config = config;
+    this.adminUrl = config?.appUrl || '/admin';
 
     if (!config) return;
 
@@ -231,7 +235,7 @@ export class NotificationService {
             This is an automated alert from your Uptime Monitor. The service will be continuously monitored and you'll be notified when it's back online.
           </p>
           <div style="text-align: center; margin-top: 20px;">
-            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #dc2626; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+            <a href="${this.adminUrl}" style="display: inline-block; background-color: #dc2626; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
           </div>
         </div>
       </div>
@@ -269,7 +273,7 @@ export class NotificationService {
                 <p style="margin: 6px 0 0; color: #6d28d9; font-size: 14px;">On-call schedule: ${onCallContact.name}</p>
               </div>
               <div style="text-align: center; margin-top: 20px;">
-                <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #7c3aed; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+                <a href="${this.adminUrl}" style="display: inline-block; background-color: #7c3aed; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
               </div>
             </div>
           </div>
@@ -311,7 +315,7 @@ export class NotificationService {
             The service is now back online and operational. Continuous monitoring will continue.
           </p>
           <div style="text-align: center; margin-top: 20px;">
-            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+            <a href="${this.adminUrl}" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
           </div>
         </div>
       </div>
@@ -345,7 +349,7 @@ export class NotificationService {
                 <p style="margin: 5px 0;"><strong>Downtime:</strong> ${durationMinutes}m ${durationSeconds}s</p>
               </div>
               <div style="text-align: center; margin-top: 20px;">
-                <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+                <a href="${this.adminUrl}" style="display: inline-block; background-color: #059669; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
               </div>
             </div>
           </div>
@@ -378,7 +382,7 @@ export class NotificationService {
             Sent at: ${new Date().toLocaleString()}
           </p>
           <div style="text-align: center; margin-top: 20px;">
-            <a href="https://uptimemonitor-production.up.railway.app/admin" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
+            <a href="${this.adminUrl}" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">View Admin Dashboard</a>
           </div>
         </div>
       </div>
