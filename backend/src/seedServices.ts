@@ -26,6 +26,8 @@ const sampleServices = [
     verify_ssl: false,
     ssl_expiry_threshold: 30,
     verify_domain: false,
+    retry_count: 3,
+    retry_delay: 5,
     status: 'unknown' as const,
   },
   {
@@ -40,6 +42,8 @@ const sampleServices = [
     verify_ssl: false,
     ssl_expiry_threshold: 30,
     verify_domain: false,
+    retry_count: 3,
+    retry_delay: 5,
     status: 'unknown' as const,
   },
   {
@@ -54,6 +58,8 @@ const sampleServices = [
     verify_ssl: false,
     ssl_expiry_threshold: 30,
     verify_domain: false,
+    retry_count: 3,
+    retry_delay: 5,
     status: 'unknown' as const,
   },
   {
@@ -68,6 +74,8 @@ const sampleServices = [
     verify_ssl: false,
     ssl_expiry_threshold: 30,
     verify_domain: false,
+    retry_count: 3,
+    retry_delay: 5,
     status: 'unknown' as const,
   },
 ];
