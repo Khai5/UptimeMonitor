@@ -1,7 +1,125 @@
 import { useState } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope, FaUserClock, FaCode, FaTimes, FaClipboard, FaClipboardCheck } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope, FaUserClock, FaCode, FaTimes, FaClipboard, FaClipboardCheck, FaSearch, FaSort, FaFileExport, FaDownload } from 'react-icons/fa';
+import { adminApi } from '../api';
+
+type SortOption = 'name_asc' | 'name_desc' | 'status' | 'last_checked';
+const STATUS_ORDER: Record<string, number> = { down: 0, degraded: 1, unknown: 2, operational: 3 };
 import { Service, OverallStatus } from '../types';
 import ServiceCard from './ServiceCard';
+
+function ExportModal({ password, onClose }: { password: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  async function buildExport() {
+    const servicesRes = await adminApi.getServices(password);
+    return {
+      exported_at: new Date().toISOString(),
+      services: servicesRes.data,
+    };
+  }
+
+  const handleDownload = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await buildExport();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `uptime-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Failed to fetch data for export.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        // Safari requires clipboard access within the user gesture context.
+        // Passing a Promise to ClipboardItem keeps that context alive while
+        // the async fetch resolves.
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': buildExport().then(
+              data => new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain' })
+            ),
+          }),
+        ]);
+      } else {
+        const data = await buildExport();
+        const text = JSON.stringify(data, null, 2);
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Failed to copy to clipboard.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <FaFileExport className="text-gray-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Export Data</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <FaTimes />
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-sm text-gray-600 mb-5">
+            Export all services as a JSON snapshot.
+          </p>
+          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownload}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <FaDownload />
+              {loading ? 'Loading…' : 'Download JSON'}
+            </button>
+            <button
+              onClick={handleCopy}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {copied ? <FaClipboardCheck className="text-green-400" /> : <FaClipboard />}
+              {copied ? 'Copied!' : 'Copy to Clipboard'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmbedModal({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<'iframe' | 'badge'>('iframe');
@@ -14,11 +132,31 @@ function EmbedModal({ onClose }: { onClose: () => void }) {
   const currentCode = activeTab === 'iframe' ? iframeCode : badgeCode;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(currentCode).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        fallbackCopy(currentCode);
+      });
+    } else {
+      fallbackCopy(currentCode);
+    }
   };
+
+  function fallbackCopy(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
@@ -126,6 +264,29 @@ function AdminDashboard({
   onOpenOnCall,
 }: AdminDashboardProps) {
   const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('name_asc');
+
+  const filteredAndSortedServices = [...services]
+    .filter((s) => {
+      const q = searchQuery.toLowerCase();
+      return s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc':
+          return a.name.localeCompare(b.name);
+        case 'name_desc':
+          return b.name.localeCompare(a.name);
+        case 'status':
+          return (STATUS_ORDER[a.status] ?? 4) - (STATUS_ORDER[b.status] ?? 4);
+        case 'last_checked':
+          return (b.last_check_at ?? '').localeCompare(a.last_check_at ?? '');
+        default:
+          return 0;
+      }
+    });
 
   const getStatusIcon = () => {
     if (!overallStatus) return null;
@@ -183,6 +344,14 @@ function AdminDashboard({
             <span>Test Email</span>
           </button>
           <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            title="Export data as JSON"
+          >
+            <FaFileExport />
+            <span>Export</span>
+          </button>
+          <button
             onClick={() => setShowEmbedModal(true)}
             className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
             title="Embed status page"
@@ -209,6 +378,7 @@ function AdminDashboard({
       </div>
 
       {showEmbedModal && <EmbedModal onClose={() => setShowEmbedModal(false)} />}
+      {showExportModal && <ExportModal password={password} onClose={() => setShowExportModal(false)} />}
 
       {/* Header */}
       <div className="text-center mb-8">
@@ -255,13 +425,46 @@ function AdminDashboard({
           </button>
         </div>
 
+        {/* Search and Sort controls */}
+        {services.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-3 px-6 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="relative flex-1">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input
+                type="text"
+                placeholder="Search by name or URL..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="relative">
+              <FaSort className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none cursor-pointer"
+              >
+                <option value="name_asc">Name (A–Z)</option>
+                <option value="name_desc">Name (Z–A)</option>
+                <option value="status">Status (worst first)</option>
+                <option value="last_checked">Last checked</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         <div className="divide-y divide-gray-200">
           {services.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">
               No services configured. Click "Add Service" to get started.
             </div>
+          ) : filteredAndSortedServices.length === 0 ? (
+            <div className="px-6 py-12 text-center text-gray-500">
+              No services match your search.
+            </div>
           ) : (
-            services.map((service) => (
+            filteredAndSortedServices.map((service) => (
               <ServiceCard
                 key={service.id}
                 service={service}
