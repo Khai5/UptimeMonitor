@@ -1,10 +1,105 @@
 import { useState } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope, FaUserClock, FaCode, FaTimes, FaClipboard, FaClipboardCheck, FaSearch, FaSort } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSignOutAlt, FaCog, FaEnvelope, FaUserClock, FaCode, FaTimes, FaClipboard, FaClipboardCheck, FaSearch, FaSort, FaFileExport, FaDownload } from 'react-icons/fa';
+import { adminApi } from '../api';
 
 type SortOption = 'name_asc' | 'name_desc' | 'status' | 'last_checked';
 const STATUS_ORDER: Record<string, number> = { down: 0, degraded: 1, unknown: 2, operational: 3 };
 import { Service, OverallStatus } from '../types';
 import ServiceCard from './ServiceCard';
+
+function ExportModal({ password, onClose }: { password: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  async function buildExport() {
+    const [servicesRes, downtimeRes, incidentsRes] = await Promise.all([
+      adminApi.getServices(password),
+      adminApi.getAllDowntimeLogs(password),
+      adminApi.getAllIncidents(password),
+    ]);
+    return {
+      exported_at: new Date().toISOString(),
+      services: servicesRes.data,
+      downtime_logs: downtimeRes.data,
+      incidents: incidentsRes.data,
+    };
+  }
+
+  const handleDownload = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await buildExport();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `uptime-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Failed to fetch data for export.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await buildExport();
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Failed to copy to clipboard.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <FaFileExport className="text-gray-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Export Data</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <FaTimes />
+          </button>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-sm text-gray-600 mb-5">
+            Export all services, downtime logs, and incidents as a JSON snapshot.
+          </p>
+          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownload}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <FaDownload />
+              {loading ? 'Loading…' : 'Download JSON'}
+            </button>
+            <button
+              onClick={handleCopy}
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {copied ? <FaClipboardCheck className="text-green-400" /> : <FaClipboard />}
+              {copied ? 'Copied!' : 'Copy to Clipboard'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmbedModal({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<'iframe' | 'badge'>('iframe');
@@ -129,6 +224,7 @@ function AdminDashboard({
   onOpenOnCall,
 }: AdminDashboardProps) {
   const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name_asc');
 
@@ -208,6 +304,14 @@ function AdminDashboard({
             <span>Test Email</span>
           </button>
           <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            title="Export data as JSON"
+          >
+            <FaFileExport />
+            <span>Export</span>
+          </button>
+          <button
             onClick={() => setShowEmbedModal(true)}
             className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
             title="Embed status page"
@@ -234,6 +338,7 @@ function AdminDashboard({
       </div>
 
       {showEmbedModal && <EmbedModal onClose={() => setShowEmbedModal(false)} />}
+      {showExportModal && <ExportModal password={password} onClose={() => setShowExportModal(false)} />}
 
       {/* Header */}
       <div className="text-center mb-8">
