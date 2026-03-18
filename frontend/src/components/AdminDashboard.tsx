@@ -13,16 +13,10 @@ function ExportModal({ password, onClose }: { password: string; onClose: () => v
   const [error, setError] = useState('');
 
   async function buildExport() {
-    const [servicesRes, downtimeRes, incidentsRes] = await Promise.all([
-      adminApi.getServices(password),
-      adminApi.getAllDowntimeLogs(password),
-      adminApi.getAllIncidents(password),
-    ]);
+    const servicesRes = await adminApi.getServices(password);
     return {
       exported_at: new Date().toISOString(),
       services: servicesRes.data,
-      downtime_logs: downtimeRes.data,
-      incidents: incidentsRes.data,
     };
   }
 
@@ -50,7 +44,20 @@ function ExportModal({ password, onClose }: { password: string; onClose: () => v
     setError('');
     try {
       const data = await buildExport();
-      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      const text = JSON.stringify(data, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -74,7 +81,7 @@ function ExportModal({ password, onClose }: { password: string; onClose: () => v
         </div>
         <div className="px-6 py-5">
           <p className="text-sm text-gray-600 mb-5">
-            Export all services, downtime logs, and incidents as a JSON snapshot.
+            Export all services as a JSON snapshot.
           </p>
           {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
           <div className="flex gap-3">
