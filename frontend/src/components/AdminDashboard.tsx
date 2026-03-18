@@ -43,20 +43,33 @@ function ExportModal({ password, onClose }: { password: string; onClose: () => v
     setLoading(true);
     setError('');
     try {
-      const data = await buildExport();
-      const text = JSON.stringify(data, null, 2);
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        // Safari requires clipboard access within the user gesture context.
+        // Passing a Promise to ClipboardItem keeps that context alive while
+        // the async fetch resolves.
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/plain': buildExport().then(
+              data => new Blob([JSON.stringify(data, null, 2)], { type: 'text/plain' })
+            ),
+          }),
+        ]);
       } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+        const data = await buildExport();
+        const text = JSON.stringify(data, null, 2);
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -119,11 +132,31 @@ function EmbedModal({ onClose }: { onClose: () => void }) {
   const currentCode = activeTab === 'iframe' ? iframeCode : badgeCode;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(currentCode).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        fallbackCopy(currentCode);
+      });
+    } else {
+      fallbackCopy(currentCode);
+    }
   };
+
+  function fallbackCopy(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
