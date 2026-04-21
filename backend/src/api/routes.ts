@@ -26,10 +26,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const storedHash = AppSettingsModel.get('admin_password_hash');
 
   if (!storedHash) {
-    // No password set yet — first-time setup: accept any password and set it
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    AppSettingsModel.set('admin_password_hash', hash);
-    next();
+    res.status(401).json({ error: 'Admin password not set. Please log in via /admin to set it.' });
     return;
   }
 
