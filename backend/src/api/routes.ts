@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, DowntimeLog } from '../models/Service';
+import bcrypt from 'bcrypt';
+import { ServiceModel, ServiceCheckModel, IncidentModel, AppSettingsModel, AdminUserModel, SessionModel, DowntimeLog } from '../models/Service';
 import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
@@ -14,7 +15,27 @@ function sanitizeServiceForPublic(service: any): { id: number; name: string; sta
   };
 }
 
-// Admin auth middleware: checks Bearer token against stored admin_password_hash
+// Simple in-memory rate limiter for login attempts
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function loginLimiter(req: Request, res: Response, next: NextFunction): void {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (record && now < record.resetAt) {
+    if (record.count >= 10) {
+      res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+      return;
+    }
+    record.count++;
+  } else {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  }
+  next();
+}
+
+// Admin auth middleware: validates session token
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -23,23 +44,29 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   }
 
   const token = authHeader.slice(7);
-  const storedHash = AppSettingsModel.get('admin_password_hash');
+  const session = SessionModel.find(token);
 
-  if (!storedHash) {
-    // No password set yet — first-time setup: accept any password and set it
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    AppSettingsModel.set('admin_password_hash', hash);
-    next();
-    return;
-  }
-
-  const providedHash = crypto.createHash('sha256').update(token).digest('hex');
-  if (providedHash !== storedHash) {
-    res.status(403).json({ error: 'Invalid admin password' });
+  if (!session || new Date(session.expires_at) < new Date()) {
+    if (session) SessionModel.delete(token);
+    res.status(401).json({ error: 'Session expired or invalid. Please log in again.' });
     return;
   }
 
   next();
+}
+
+// Returns true if hash is a legacy SHA256 hex string (pre-bcrypt)
+function isLegacySha256Hash(hash: string): boolean {
+  return /^[a-f0-9]{64}$/.test(hash);
+}
+
+function generateSessionToken(rememberMe = false): { token: string; expiresAt: string } {
+  const token = crypto.randomBytes(32).toString('hex');
+  const durationMs = rememberMe
+    ? 14 * 24 * 60 * 60 * 1000
+    : 24 * 60 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + durationMs).toISOString();
+  return { token, expiresAt };
 }
 
 export function createRouter(monitoringService: MonitoringService, notificationService: NotificationService): Router {
@@ -87,45 +114,85 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   });
 
   // ========== AUTH ==========
-  // Verify admin password (used by frontend login)
-  router.post('/auth/login', (req: Request, res: Response) => {
+  router.post('/auth/login', loginLimiter, async (req: Request, res: Response) => {
     try {
-      const { password } = req.body;
+      const { username, password, rememberMe } = req.body;
       if (!password) {
         res.status(400).json({ error: 'Password is required' });
         return;
       }
 
-      const storedHash = AppSettingsModel.get('admin_password_hash');
+      const userCount = AdminUserModel.count();
 
-      if (!storedHash) {
-        // First time — set the password
-        const hash = crypto.createHash('sha256').update(password).digest('hex');
-        AppSettingsModel.set('admin_password_hash', hash);
-        res.json({ success: true, firstTime: true });
+      if (userCount === 0) {
+        // First time setup — create initial admin user
+        if (!username) {
+          res.status(400).json({ error: 'Username is required for initial setup' });
+          return;
+        }
+        const hash = await bcrypt.hash(password, 12);
+        const user = AdminUserModel.create(username, hash);
+        const { token, expiresAt } = generateSessionToken(!!rememberMe);
+        SessionModel.create(token, expiresAt, user.id);
+        res.json({ success: true, firstTime: true, token });
         return;
       }
 
-      const providedHash = crypto.createHash('sha256').update(password).digest('hex');
-      if (providedHash !== storedHash) {
-        res.status(403).json({ error: 'Invalid password' });
+      if (!username) {
+        res.status(400).json({ error: 'Username is required' });
         return;
       }
 
-      res.json({ success: true });
+      const user = AdminUserModel.getByUsername(username);
+      if (!user) {
+        res.status(403).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      // Support migrating legacy SHA256 hashes to bcrypt on first login
+      let valid = false;
+      if (isLegacySha256Hash(user.password_hash)) {
+        const sha256Hash = crypto.createHash('sha256').update(password).digest('hex');
+        valid = sha256Hash === user.password_hash;
+        if (valid) {
+          const newHash = await bcrypt.hash(password, 12);
+          AdminUserModel.updatePassword(user.id, newHash);
+        }
+      } else {
+        valid = await bcrypt.compare(password, user.password_hash);
+      }
+
+      if (!valid) {
+        res.status(403).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const { token, expiresAt } = generateSessionToken(!!rememberMe);
+      SessionModel.create(token, expiresAt, user.id);
+      SessionModel.deleteExpired();
+      res.json({ success: true, token });
     } catch (error) {
       res.status(500).json({ error: 'Authentication failed' });
     }
   });
 
-  // Check if admin password has been set
+  // Check if any admin accounts have been set up
   router.get('/auth/status', (req: Request, res: Response) => {
     try {
-      const storedHash = AppSettingsModel.get('admin_password_hash');
-      res.json({ passwordSet: !!storedHash });
+      const count = AdminUserModel.count();
+      res.json({ passwordSet: count > 0 });
     } catch (error) {
       res.status(500).json({ error: 'Failed to check auth status' });
     }
+  });
+
+  // Logout: invalidate the session token
+  router.post('/auth/logout', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      SessionModel.delete(authHeader.slice(7));
+    }
+    res.json({ success: true });
   });
 
   // ========== ADMIN ROUTES (require auth) ==========
@@ -447,8 +514,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
-  // Admin: Change admin password
-  router.post('/admin/change-password', requireAdmin, (req: Request, res: Response) => {
+  // Admin: Change own password
+  router.post('/admin/change-password', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { new_password } = req.body;
       if (!new_password || new_password.length < 8) {
@@ -456,8 +523,15 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
-      const hash = crypto.createHash('sha256').update(new_password).digest('hex');
-      AppSettingsModel.set('admin_password_hash', hash);
+      const token = req.headers.authorization!.slice(7);
+      const session = SessionModel.find(token);
+      if (!session?.user_id) {
+        res.status(400).json({ error: 'Cannot determine current user' });
+        return;
+      }
+
+      const hash = await bcrypt.hash(new_password, 12);
+      AdminUserModel.updatePassword(session.user_id, hash);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to change password' });

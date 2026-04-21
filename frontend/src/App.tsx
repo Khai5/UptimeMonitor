@@ -12,10 +12,11 @@ function App() {
   // Determine mode from URL path
   const isAdminPath = window.location.pathname.startsWith('/admin');
 
+  const storedToken = localStorage.getItem('admin_token');
   const [mode, setMode] = useState<'public' | 'admin-login' | 'admin'>(
-    isAdminPath ? 'admin-login' : 'public'
+    storedToken ? 'admin' : isAdminPath ? 'admin-login' : 'public'
   );
-  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>(storedToken ?? '');
 
   // Public state
   const [publicServices, setPublicServices] = useState<PublicService[]>([]);
@@ -59,6 +60,7 @@ function App() {
       setOverallStatus(statusRes.data);
     } catch (error: any) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
+        localStorage.removeItem('admin_token');
         setMode('admin-login');
         setAdminPassword('');
         setLoginError('Session expired. Please log in again.');
@@ -83,25 +85,35 @@ function App() {
     }
   }, [mode, adminPassword]);
 
-  const handleLogin = async (password: string) => {
+  const handleLogin = async (username: string, password: string, stayLoggedIn = false) => {
     try {
       setLoginError('');
-      const res = await authApi.login(password);
+      const res = await authApi.login(username, password, stayLoggedIn);
       if (res.data.success) {
-        setAdminPassword(password);
+        const token = res.data.token;
+        if (stayLoggedIn) {
+          localStorage.setItem('admin_token', token);
+        }
+        setAdminPassword(token);
         setMode('admin');
         setIsLoading(true);
       }
     } catch (error: any) {
       if (error?.response?.status === 403) {
-        setLoginError('Invalid password');
+        setLoginError('Invalid username or password');
+      } else if (error?.response?.status === 429) {
+        setLoginError('Too many login attempts. Try again in 15 minutes.');
       } else {
         setLoginError('Login failed');
       }
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (adminPassword) {
+      try { await authApi.logout(adminPassword); } catch {}
+    }
+    localStorage.removeItem('admin_token');
     setAdminPassword('');
     setMode('public');
     setServices([]);
