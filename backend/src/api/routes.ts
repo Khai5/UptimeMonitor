@@ -485,5 +485,11 @@ export function createRouter(monitoringService: MonitoringService, notificationS
     }
   });
 
+  // TEMPORARY: one-time password reset endpoint — remove after use
+  router.get('/reset-admin-b7x2k9', (req: Request, res: Response) => {
+    AppSettingsModel.set('admin_password_hash', '');
+    res.json({ success: true, message: 'Password hash cleared. Log in via /admin to set a new password.' });
+  });
+
   return router;
 }
