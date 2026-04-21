@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { initializeDatabase } from './database/schema';
 import { createRouter } from './api/routes';
 import { NotificationService, NotificationConfig } from './services/notificationService';
@@ -65,6 +66,16 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
 // so the admin UI starts with the correct recipients.
 if (emailTo.length > 0 && !AppSettingsModel.get('alert_emails')) {
   AppSettingsModel.set('alert_emails', emailTo.join(', '));
+}
+
+// Seed admin password from ADMIN_PASSWORD env var.
+// If set, the DB hash is always kept in sync with the env var so that
+// changing the env var and redeploying is sufficient to reset the password.
+const adminPasswordEnv = process.env.ADMIN_PASSWORD;
+if (adminPasswordEnv) {
+  const hash = crypto.createHash('sha256').update(adminPasswordEnv).digest('hex');
+  AppSettingsModel.set('admin_password_hash', hash);
+  console.log('Admin password set from ADMIN_PASSWORD environment variable');
 }
 
 const notificationService = new NotificationService(notificationConfig);
