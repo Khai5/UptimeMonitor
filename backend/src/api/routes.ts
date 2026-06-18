@@ -89,11 +89,13 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   router.get('/public/status', (req: Request, res: Response) => {
     try {
       const services = ServiceModel.getAll();
-      const anyDown = services.some((s) => s.status === 'down');
+      const downCount = services.filter((s) => s.status === 'down').length;
       const anyDegraded = services.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
-      if (anyDown) {
+      if (downCount === 1) {
+        overallStatus = 'partial_outage';
+      } else if (downCount > 1) {
         overallStatus = 'down';
       } else if (anyDegraded) {
         overallStatus = 'degraded';
@@ -117,13 +119,16 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   router.get('/public/badge', (req: Request, res: Response) => {
     try {
       const services = ServiceModel.getAll();
-      const anyDown = services.some((s) => s.status === 'down');
+      const downCount = services.filter((s) => s.status === 'down').length;
       const anyDegraded = services.some((s) => s.status === 'degraded');
       const theme = req.query.theme === 'dark' ? 'dark' : 'light';
 
       let statusText: string;
       let dotColor: string;
-      if (anyDown) {
+      if (downCount === 1) {
+        statusText = 'Partial outage detected';
+        dotColor = '#f97316';
+      } else if (downCount > 1) {
         statusText = 'Outage detected';
         dotColor = '#ef4444';
       } else if (anyDegraded) {
@@ -536,11 +541,13 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   router.get('/admin/status', requireAdmin, (req: Request, res: Response) => {
     try {
       const services = ServiceModel.getAll();
-      const anyDown = services.some((s) => s.status === 'down');
+      const downCount = services.filter((s) => s.status === 'down').length;
       const anyDegraded = services.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
-      if (anyDown) {
+      if (downCount === 1) {
+        overallStatus = 'partial_outage';
+      } else if (downCount > 1) {
         overallStatus = 'down';
       } else if (anyDegraded) {
         overallStatus = 'degraded';

@@ -110,7 +110,7 @@ export interface AdminUser {
 }
 
 export interface OverallStatus {
-  status: 'operational' | 'degraded' | 'down';
+  status: 'operational' | 'degraded' | 'partial_outage' | 'down';
   total_services: number;
   operational: number;
   degraded: number;

@@ -35,6 +35,8 @@ function EmbedPage() {
         return <FaCheckCircle className={`text-green-500 ${size}`} />;
       case 'degraded':
         return <FaExclamationTriangle className={`text-yellow-500 ${size}`} />;
+      case 'partial_outage':
+        return <FaExclamationTriangle className={`text-orange-500 ${size}`} />;
       case 'down':
         return <FaTimesCircle className={`text-red-500 ${size}`} />;
       default:
@@ -46,7 +48,8 @@ function EmbedPage() {
     switch (status) {
       case 'operational': return 'All systems operational';
       case 'degraded': return 'Some systems degraded';
-      case 'down': return 'Some systems down';
+      case 'partial_outage': return 'Partial outage detected';
+      case 'down': return 'Outage detected';
       default: return 'Status unknown';
     }
   };
@@ -55,6 +58,7 @@ function EmbedPage() {
     switch (status) {
       case 'operational': return 'text-green-600';
       case 'degraded': return 'text-yellow-600';
+      case 'partial_outage': return 'text-orange-500';
       case 'down': return 'text-red-600';
       default: return 'text-gray-400';
     }
@@ -64,6 +68,7 @@ function EmbedPage() {
     switch (status) {
       case 'operational': return 'bg-green-50 border-green-100';
       case 'degraded': return 'bg-yellow-50 border-yellow-100';
+      case 'partial_outage': return 'bg-orange-50 border-orange-100';
       case 'down': return 'bg-red-50 border-red-100';
       default: return 'bg-gray-50 border-gray-100';
     }

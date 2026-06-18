@@ -37,6 +37,8 @@ function Dashboard({
         return <FaCheckCircle className="text-5xl text-green-600" />;
       case 'degraded':
         return <FaExclamationTriangle className="text-5xl text-yellow-600" />;
+      case 'partial_outage':
+        return <FaExclamationTriangle className="text-5xl text-orange-500" />;
       case 'down':
         return <FaTimesCircle className="text-5xl text-red-600" />;
       default:
@@ -51,8 +53,10 @@ function Dashboard({
       return 'All services are online';
     } else if (overallStatus.status === 'degraded') {
       return 'Some services are degraded';
+    } else if (overallStatus.status === 'partial_outage') {
+      return 'Partial outage detected';
     } else {
-      return 'Some services are down';
+      return 'Outage detected';
     }
   };
 
