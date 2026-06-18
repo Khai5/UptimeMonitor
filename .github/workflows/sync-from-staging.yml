@@ -1,0 +1,93 @@
+name: Sync from Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (show what would be synced, no PR)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout prod
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add staging remote
+        run: |
+          git remote add staging https://github.com/Khai5/UptimeMonitor_Staging.git
+          git fetch staging main
+
+      - name: Find commits ahead in staging
+        id: diff
+        run: |
+          AHEAD=$(git log HEAD..staging/main --oneline)
+          echo "Commits ahead in staging:"
+          echo "$AHEAD"
+          COUNT=$(git log HEAD..staging/main --oneline | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          {
+            echo "ahead<<EOF"
+            echo "$AHEAD"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Nothing to sync
+        if: steps.diff.outputs.count == '0'
+        run: echo "Prod is already up to date with staging. Nothing to sync."
+
+      - name: Dry run summary
+        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'true'
+        run: |
+          echo "=== DRY RUN: ${{ steps.diff.outputs.count }} commit(s) would be synced ==="
+          echo "${{ steps.diff.outputs.ahead }}"
+
+      - name: Create sync branch and cherry-pick
+        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'false'
+        id: cherry
+        run: |
+          BRANCH="staging-sync-$(date +%Y%m%d-%H%M%S)"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # Cherry-pick staging commits oldest-first
+          COMMITS=$(git log HEAD..staging/main --reverse --format="%H")
+          for SHA in $COMMITS; do
+            git cherry-pick "$SHA" || {
+              echo "Cherry-pick failed on $SHA — aborting"
+              git cherry-pick --abort
+              exit 1
+            }
+          done
+          git push origin "$BRANCH"
+
+      - name: Open PR
+        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "${{ steps.cherry.outputs.branch }}" \
+            --title "Promote staging to prod (${{ steps.diff.outputs.count }} commit(s))" \
+            --body "## Staging sync
+
+          Automatically cherry-picked from \`Khai5/UptimeMonitor_Staging\` main.
+
+          ### Commits included
+          \`\`\`
+          ${{ steps.diff.outputs.ahead }}
+          \`\`\`
+
+          Review the diff and merge when ready."
