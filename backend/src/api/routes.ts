@@ -93,10 +93,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       const anyDegraded = services.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
-      if (downCount === 1) {
+      if (downCount >= 1) {
         overallStatus = 'partial_outage';
-      } else if (downCount > 1) {
-        overallStatus = 'down';
       } else if (anyDegraded) {
         overallStatus = 'degraded';
       }
@@ -125,12 +123,9 @@ export function createRouter(monitoringService: MonitoringService, notificationS
 
       let statusText: string;
       let dotColor: string;
-      if (downCount === 1) {
+      if (downCount >= 1) {
         statusText = 'Partial outage detected';
         dotColor = '#f97316';
-      } else if (downCount > 1) {
-        statusText = 'Outage detected';
-        dotColor = '#ef4444';
       } else if (anyDegraded) {
         statusText = 'Some systems degraded';
         dotColor = '#f59e0b';
@@ -545,10 +540,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       const anyDegraded = services.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
-      if (downCount === 1) {
+      if (downCount >= 1) {
         overallStatus = 'partial_outage';
-      } else if (downCount > 1) {
-        overallStatus = 'down';
       } else if (anyDegraded) {
         overallStatus = 'degraded';
       }
