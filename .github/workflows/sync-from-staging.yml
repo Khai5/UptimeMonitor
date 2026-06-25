@@ -23,9 +23,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Add staging remote
+      - name: Add staging remote (authenticated)
         run: |
-          git remote add staging https://github.com/Khai5/UptimeMonitor_Staging.git
+          git remote add staging https://x-access-token:${{ secrets.STAGING_PAT }}@github.com/Khai5/UptimeMonitor_Staging.git
           git fetch staging main
 
       - name: Find commits ahead in staging
@@ -61,11 +61,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          # Cherry-pick staging commits oldest-first
           COMMITS=$(git log HEAD..staging/main --reverse --format="%H")
           for SHA in $COMMITS; do
             git cherry-pick "$SHA" || {
-              echo "Cherry-pick failed on $SHA — aborting"
+              echo "Cherry-pick failed on $SHA -- aborting"
               git cherry-pick --abort
               exit 1
             }
