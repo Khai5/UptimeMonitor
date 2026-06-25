@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run (show what would be synced, no PR)'
+        description: 'Dry run (show diff only, no PR)'
         required: false
         default: 'false'
         type: boolean
@@ -21,72 +21,77 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          path: prod
 
-      - name: Add staging remote (authenticated)
-        run: |
-          git remote add staging https://x-access-token:${{ secrets.STAGING_PAT }}@github.com/Khai5/UptimeMonitor_Staging.git
-          git fetch staging main
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          repository: Khai5/UptimeMonitor_Staging
+          token: ${{ secrets.STAGING_PAT }}
+          fetch-depth: 0
+          path: staging
 
-      - name: Find commits ahead in staging
-        id: diff
+      - name: Sync files from staging to prod
         run: |
-          AHEAD=$(git log HEAD..staging/main --oneline)
-          echo "Commits ahead in staging:"
-          echo "$AHEAD"
-          COUNT=$(git log HEAD..staging/main --oneline | wc -l | tr -d ' ')
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --delete \
+            staging/ prod/
+
+      - name: Check for changes
+        id: changes
+        working-directory: prod
+        run: |
+          git diff --stat
+          COUNT=$(git diff --name-only | wc -l | tr -d ' ')
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           {
-            echo "ahead<<EOF"
-            echo "$AHEAD"
+            echo "files<<EOF"
+            git diff --name-only
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
       - name: Nothing to sync
-        if: steps.diff.outputs.count == '0'
-        run: echo "Prod is already up to date with staging. Nothing to sync."
+        if: steps.changes.outputs.count == '0'
+        run: echo "Prod is already up to date with staging."
 
       - name: Dry run summary
-        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'true'
+        if: steps.changes.outputs.count != '0' && inputs.dry_run == 'true'
+        working-directory: prod
         run: |
-          echo "=== DRY RUN: ${{ steps.diff.outputs.count }} commit(s) would be synced ==="
-          echo "${{ steps.diff.outputs.ahead }}"
+          echo "=== DRY RUN: ${{ steps.changes.outputs.count }} file(s) would change ==="
+          git diff --stat
 
-      - name: Create sync branch and cherry-pick
-        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'false'
-        id: cherry
+      - name: Commit and push sync branch
+        if: steps.changes.outputs.count != '0' && inputs.dry_run == 'false'
+        id: push
+        working-directory: prod
         run: |
           BRANCH="staging-sync-$(date +%Y%m%d-%H%M%S)"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          COMMITS=$(git log HEAD..staging/main --reverse --format="%H")
-          for SHA in $COMMITS; do
-            git cherry-pick "$SHA" || {
-              echo "Cherry-pick failed on $SHA -- aborting"
-              git cherry-pick --abort
-              exit 1
-            }
-          done
+          git add -A
+          git commit -m "Sync from staging"
           git push origin "$BRANCH"
 
       - name: Open PR
-        if: steps.diff.outputs.count != '0' && inputs.dry_run == 'false'
+        if: steps.changes.outputs.count != '0' && inputs.dry_run == 'false'
+        working-directory: prod
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr create \
             --base main \
-            --head "${{ steps.cherry.outputs.branch }}" \
-            --title "Promote staging to prod (${{ steps.diff.outputs.count }} commit(s))" \
+            --head "${{ steps.push.outputs.branch }}" \
+            --title "Promote staging to prod (${{ steps.changes.outputs.count }} file(s) changed)" \
             --body "## Staging sync
 
-          Automatically cherry-picked from \`Khai5/UptimeMonitor_Staging\` main.
-
-          ### Commits included
+          Files changed:
           \`\`\`
-          ${{ steps.diff.outputs.ahead }}
+          ${{ steps.changes.outputs.files }}
           \`\`\`
 
           Review the diff and merge when ready."
