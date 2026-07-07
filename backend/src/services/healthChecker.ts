@@ -68,7 +68,7 @@ export class HealthChecker {
         method: method as AxiosRequestConfig['method'],
         url: service.url,
         timeout: service.timeout * 1000,
-        validateStatus: alertType === 'http_status_other_than' || needsBody ? () => true : (status: number) => status >= 200 && status < 300,
+        validateStatus: alertType === 'http_status_other_than' ? () => true : (status: number) => status < 400,
         headers,
         maxRedirects: followRedirects ? 5 : 0,
         // Enable credentials for cookie handling
@@ -138,8 +138,8 @@ export class HealthChecker {
           status = 'operational';
         }
       } else {
-        // Default: 'unavailable' - only 2xx responses are operational
-        if (response.status >= 200 && response.status < 300) {
+        // Default: 'unavailable' - only 2xx/3xx are operational; 4xx means the endpoint is gone/broken
+        if (response.status >= 200 && response.status < 400) {
           status = 'operational';
         } else {
           status = 'down';

@@ -6,6 +6,7 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminLogin from './components/AdminLogin';
 import AddServiceModal from './components/AddServiceModal';
 import EditServiceModal from './components/EditServiceModal';
+import CopyServiceModal from './components/CopyServiceModal';
 import SettingsModal from './components/SettingsModal';
 import OnCallModal from './components/OnCallModal';
 import EmbedPage from './components/EmbedPage';
@@ -35,6 +36,7 @@ function App() {
   const [overallStatus, setOverallStatus] = useState<OverallStatus | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [copyingService, setCopyingService] = useState<Service | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOnCallOpen, setIsOnCallOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +154,17 @@ function App() {
     }
   };
 
+  const handleCopyService = async (service: Partial<Service>) => {
+    try {
+      await adminApi.createService(adminPassword, service);
+      await fetchAdminData();
+      setCopyingService(null);
+    } catch (error) {
+      console.error('Error copying service:', error);
+      alert('Failed to copy service');
+    }
+  };
+
   const handleDeleteService = async (id: number) => {
     if (!confirm('Are you sure you want to delete this service?')) return;
     try {
@@ -226,6 +239,7 @@ function App() {
         onAddService={() => setIsAddModalOpen(true)}
         onEditService={(service) => setEditingService(service)}
         onDeleteService={handleDeleteService}
+        onCopyService={(service) => setCopyingService(service)}
         onCheckNow={handleCheckNow}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -245,6 +259,14 @@ function App() {
           service={editingService}
           onClose={() => setEditingService(null)}
           onSave={handleEditService}
+        />
+      )}
+
+      {copyingService && (
+        <CopyServiceModal
+          service={copyingService}
+          onClose={() => setCopyingService(null)}
+          onSave={handleCopyService}
         />
       )}
 

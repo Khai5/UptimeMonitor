@@ -242,6 +242,7 @@ interface AdminDashboardProps {
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
+  onCopyService: (service: Service) => void;
   onCheckNow: (id: number) => void;
   onLogout: () => void;
   onOpenSettings: () => void;
@@ -257,6 +258,7 @@ function AdminDashboard({
   onAddService,
   onEditService,
   onDeleteService,
+  onCopyService,
   onCheckNow,
   onLogout,
   onOpenSettings,
@@ -476,6 +478,7 @@ function AdminDashboard({
                 onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
+                onCopyToNew={onCopyService}
               />
             ))
           )}
