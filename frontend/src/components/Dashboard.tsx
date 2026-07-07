@@ -10,6 +10,7 @@ interface DashboardProps {
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
+  onCopyService: (service: Service) => void;
   onCheckNow: (id: number) => void;
 }
 
@@ -24,6 +25,7 @@ function Dashboard({
   onAddService,
   onEditService,
   onDeleteService,
+  onCopyService,
   onCheckNow,
 }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -192,6 +194,7 @@ function Dashboard({
                 onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
+                onCopyToNew={onCopyService}
               />
             ))
           )}

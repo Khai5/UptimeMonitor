@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp, FaLock, FaGlobe } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp, FaLock, FaGlobe, FaCopy } from 'react-icons/fa';
 import { Service, DowntimeLog } from '../types';
 import { adminApi } from '../api';
 import DowntimeLogPanel from './DowntimeLogPanel';
@@ -11,9 +11,10 @@ interface ServiceCardProps {
   onEdit: (service: Service) => void;
   onDelete: (id: number) => void;
   onCheckNow: (id: number) => void;
+  onCopyToNew: (service: Service) => void;
 }
 
-function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, onCheckNow }: ServiceCardProps) {
+function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, onCheckNow, onCopyToNew }: ServiceCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [downtimeLog, setDowntimeLog] = useState<DowntimeLog | null>(null);
   const [loadingLog, setLoadingLog] = useState(false);
@@ -149,6 +150,13 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
                 title="Edit service"
               >
                 <FaCog />
+              </button>
+              <button
+                onClick={() => onCopyToNew(service)}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                title="Copy to New"
+              >
+                <FaCopy />
               </button>
               <button
                 onClick={() => onDelete(service.id)}
