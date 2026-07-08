@@ -455,11 +455,11 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
                   setFormData({ ...formData, check_interval: parseInt(e.target.value) })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="30"
+                min="1"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                Default: 900 (15 minutes). Minimum: 30 seconds.
+                Default: 900 (15 minutes). Minimum: 1 second.
               </p>
             </div>
           </div>

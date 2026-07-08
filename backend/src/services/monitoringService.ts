@@ -118,8 +118,8 @@ export class MonitoringService {
     let cronExpression: string;
 
     if (intervalSeconds < 60) {
-      // Every N seconds (using */N syntax for seconds isn't standard cron, so we'll use minimum 1 minute)
-      cronExpression = '* * * * *'; // Every minute
+      // node-cron supports an optional leading seconds field: "*/N * * * * *"
+      cronExpression = `*/${intervalSeconds} * * * * *`; // Every N seconds
     } else if (intervalSeconds === 60) {
       cronExpression = '* * * * *'; // Every minute
     } else if (intervalSeconds % 60 === 0) {
