@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp, FaLock, FaGlobe, FaCopy } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaTrash, FaSync, FaCog, FaChevronDown, FaChevronUp, FaLock, FaGlobe, FaCopy, FaPause, FaPlay, FaPauseCircle } from 'react-icons/fa';
 import { Service, DowntimeLog } from '../types';
 import { adminApi } from '../api';
 import DowntimeLogPanel from './DowntimeLogPanel';
@@ -8,13 +8,16 @@ interface ServiceCardProps {
   service: Service;
   password: string;
   isChecking?: boolean;
+  isTogglingPause?: boolean;
   onEdit: (service: Service) => void;
   onDelete: (id: number) => void;
   onCheckNow: (id: number) => void;
   onCopyToNew: (service: Service) => void;
+  onTogglePause: (service: Service) => void;
 }
 
-function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, onCheckNow, onCopyToNew }: ServiceCardProps) {
+function ServiceCard({ service, password, isChecking = false, isTogglingPause = false, onEdit, onDelete, onCheckNow, onCopyToNew, onTogglePause }: ServiceCardProps) {
+  const isPaused = service.is_paused === true || (service.is_paused as unknown) === 1;
   const [expanded, setExpanded] = useState(false);
   const [downtimeLog, setDowntimeLog] = useState<DowntimeLog | null>(null);
   const [loadingLog, setLoadingLog] = useState(false);
@@ -46,6 +49,7 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
     setExpanded(!expanded);
   };
   const getStatusColor = () => {
+    if (isPaused) return 'text-gray-400';
     switch (service.status) {
       case 'operational':
         return 'text-green-600';
@@ -59,6 +63,7 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
   };
 
   const getStatusIcon = () => {
+    if (isPaused) return <FaPauseCircle className={`${getStatusColor()} text-xl`} />;
     switch (service.status) {
       case 'operational':
         return <FaCheckCircle className={`${getStatusColor()} text-xl`} />;
@@ -72,14 +77,15 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
   };
 
   const getStatusText = () => {
+    if (isPaused) return 'Paused';
     return service.status.charAt(0).toUpperCase() + service.status.slice(1);
   };
 
   return (
     <div>
-      <div className="px-6 py-4 hover:bg-gray-50 transition-colors">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
+      <div className={`px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors ${isPaused ? 'opacity-60' : ''}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
             <div className="flex-shrink-0">{getStatusIcon()}</div>
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-medium text-gray-900 truncate">
@@ -124,11 +130,11 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between sm:justify-end gap-3 pl-9 sm:pl-0">
             <span className={`text-sm font-medium ${getStatusColor()}`}>
               {getStatusText()}
             </span>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap items-center justify-end gap-1">
               <button
                 onClick={toggleExpand}
                 className="p-2 text-gray-500 hover:bg-gray-100 rounded transition-colors"
@@ -138,11 +144,19 @@ function ServiceCard({ service, password, isChecking = false, onEdit, onDelete, 
               </button>
               <button
                 onClick={() => onCheckNow(service.id)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                title="Check now"
-                disabled={isChecking}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={isPaused ? 'Resume monitoring to check now' : 'Check now'}
+                disabled={isChecking || isPaused}
               >
                 <FaSync className={isChecking ? 'animate-spin' : ''} />
+              </button>
+              <button
+                onClick={() => onTogglePause(service)}
+                className={`p-2 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isPaused ? 'text-green-600 hover:bg-green-50' : 'text-gray-500 hover:bg-gray-100'}`}
+                title={isPaused ? 'Resume monitoring' : 'Pause monitoring'}
+                disabled={isTogglingPause}
+              >
+                {isPaused ? <FaPlay /> : <FaPause />}
               </button>
               <button
                 onClick={() => onEdit(service)}

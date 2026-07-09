@@ -23,6 +23,7 @@ export interface Service {
   verify_domain: boolean;
   retry_count: number;
   retry_delay: number;
+  is_paused: boolean;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -75,8 +76,8 @@ export interface DowntimeLog {
 export class ServiceModel {
   static create(service: Omit<Service, 'id'>): Service {
     const stmt = db.prepare(`
-      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, verify_ssl, ssl_expiry_threshold, verify_domain, retry_count, retry_delay, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO services (name, url, http_method, request_body, request_headers, follow_redirects, keep_cookies, check_interval, timeout, alert_type, alert_keyword, alert_http_statuses, verify_ssl, ssl_expiry_threshold, verify_domain, retry_count, retry_delay, is_paused, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -97,6 +98,7 @@ export class ServiceModel {
       service.verify_domain ? 1 : 0,
       service.retry_count ?? 3,
       service.retry_delay ?? 5,
+      service.is_paused ? 1 : 0,
       service.status
     );
 
@@ -126,7 +128,7 @@ export class ServiceModel {
     const values = Object.entries(updates)
       .filter(([key]) => key !== 'id')
       .map(([key, value]) => {
-        if (key === 'follow_redirects' || key === 'keep_cookies' || key === 'verify_ssl' || key === 'verify_domain') {
+        if (key === 'follow_redirects' || key === 'keep_cookies' || key === 'verify_ssl' || key === 'verify_domain' || key === 'is_paused') {
           return value ? 1 : 0;
         }
         return value;
@@ -165,6 +167,15 @@ export class ServiceModel {
     `);
 
     stmt.run(status, now, statusChanged ? 1 : 0, now, now, id);
+  }
+
+  static setPaused(id: number, paused: boolean): void {
+    const stmt = db.prepare(`
+      UPDATE services
+      SET is_paused = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(paused ? 1 : 0, id);
   }
 }
 

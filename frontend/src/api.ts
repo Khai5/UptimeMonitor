@@ -37,6 +37,10 @@ export const adminApi = {
     api.delete(`/admin/services/${id}`, authHeaders(password)),
   checkNow: (password: string, id: number) =>
     api.post<Service>(`/admin/services/${id}/check`, {}, authHeaders(password)),
+  pauseService: (password: string, id: number) =>
+    api.post<Service>(`/admin/services/${id}/pause`, {}, authHeaders(password)),
+  resumeService: (password: string, id: number) =>
+    api.post<Service>(`/admin/services/${id}/resume`, {}, authHeaders(password)),
   getChecks: (password: string, id: number, limit?: number) =>
     api.get<ServiceCheck[]>(`/admin/services/${id}/checks`, { ...authHeaders(password), params: { limit } }),
   getIncidents: (password: string, id: number, limit?: number) =>

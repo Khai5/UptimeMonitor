@@ -28,6 +28,7 @@ const sampleServices = [
     verify_domain: false,
     retry_count: 3,
     retry_delay: 5,
+    is_paused: false,
     status: 'unknown' as const,
   },
   {
@@ -44,6 +45,7 @@ const sampleServices = [
     verify_domain: false,
     retry_count: 3,
     retry_delay: 5,
+    is_paused: false,
     status: 'unknown' as const,
   },
   {
@@ -60,6 +62,7 @@ const sampleServices = [
     verify_domain: false,
     retry_count: 3,
     retry_delay: 5,
+    is_paused: false,
     status: 'unknown' as const,
   },
   {
@@ -76,6 +79,7 @@ const sampleServices = [
     verify_domain: false,
     retry_count: 3,
     retry_delay: 5,
+    is_paused: false,
     status: 'unknown' as const,
   },
 ];

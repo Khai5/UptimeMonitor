@@ -12,6 +12,7 @@ interface DashboardProps {
   onDeleteService: (id: number) => void;
   onCopyService: (service: Service) => void;
   onCheckNow: (id: number) => void;
+  onTogglePause: (service: Service) => void;
 }
 
 type SortOption = 'name_asc' | 'name_desc' | 'status' | 'last_checked';
@@ -27,6 +28,7 @@ function Dashboard({
   onDeleteService,
   onCopyService,
   onCheckNow,
+  onTogglePause,
 }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name_asc');
@@ -195,6 +197,7 @@ function Dashboard({
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
                 onCopyToNew={onCopyService}
+                onTogglePause={onTogglePause}
               />
             ))
           )}

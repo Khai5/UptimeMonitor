@@ -42,6 +42,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [checkingServiceId, setCheckingServiceId] = useState<number | null>(null);
+  const [togglingPauseServiceId, setTogglingPauseServiceId] = useState<number | null>(null);
 
   // Public data fetch
   const fetchPublicData = async () => {
@@ -189,6 +190,23 @@ function App() {
     }
   };
 
+  const handleTogglePause = async (service: Service) => {
+    try {
+      setTogglingPauseServiceId(service.id);
+      if (service.is_paused) {
+        await adminApi.resumeService(adminPassword, service.id);
+      } else {
+        await adminApi.pauseService(adminPassword, service.id);
+      }
+      await fetchAdminData();
+    } catch (error) {
+      console.error('Error toggling service pause state:', error);
+      alert(service.is_paused ? 'Failed to resume service' : 'Failed to pause service');
+    } finally {
+      setTogglingPauseServiceId(null);
+    }
+  };
+
   const handleTestEmail = async () => {
     try {
       await adminApi.sendTestEmail(adminPassword);
@@ -236,11 +254,13 @@ function App() {
         overallStatus={overallStatus}
         password={adminPassword}
         checkingServiceId={checkingServiceId}
+        togglingPauseServiceId={togglingPauseServiceId}
         onAddService={() => setIsAddModalOpen(true)}
         onEditService={(service) => setEditingService(service)}
         onDeleteService={handleDeleteService}
         onCopyService={(service) => setCopyingService(service)}
         onCheckNow={handleCheckNow}
+        onTogglePause={handleTogglePause}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onTestEmail={handleTestEmail}
