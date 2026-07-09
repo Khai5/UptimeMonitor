@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaPauseCircle } from 'react-icons/fa';
 import { PublicService, OverallStatus } from '../types';
 import { publicApi } from '../api';
 
@@ -29,7 +29,8 @@ function EmbedPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusIcon = (status: string, size = 'text-sm') => {
+  const getStatusIcon = (status: string, size = 'text-sm', isPaused = false) => {
+    if (isPaused) return <FaPauseCircle className={`text-gray-400 ${size}`} />;
     switch (status) {
       case 'operational':
         return <FaCheckCircle className={`text-green-500 ${size}`} />;
@@ -54,7 +55,8 @@ function EmbedPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isPaused = false) => {
+    if (isPaused) return 'text-gray-400';
     switch (status) {
       case 'operational': return 'text-green-600';
       case 'degraded': return 'text-yellow-600';
@@ -101,9 +103,9 @@ function EmbedPage() {
             <div key={service.id} className="px-4 py-2 flex items-center justify-between">
               <span className="text-gray-700 text-xs">{service.name}</span>
               <div className="flex items-center gap-1.5">
-                {getStatusIcon(service.status, 'text-xs')}
-                <span className={`text-xs font-medium ${getStatusColor(service.status)}`}>
-                  {service.status.charAt(0).toUpperCase() + service.status.slice(1)}
+                {getStatusIcon(service.status, 'text-xs', service.is_paused)}
+                <span className={`text-xs font-medium ${getStatusColor(service.status, service.is_paused)}`}>
+                  {service.is_paused ? 'Paused' : service.status.charAt(0).toUpperCase() + service.status.slice(1)}
                 </span>
               </div>
             </div>

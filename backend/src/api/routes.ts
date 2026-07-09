@@ -6,11 +6,12 @@ import { MonitoringService } from '../services/monitoringService';
 import { NotificationService } from '../services/notificationService';
 
 // Strip sensitive fields from a service object for public consumption
-function sanitizeServiceForPublic(service: any): { id: number; name: string; status: string; last_check_at?: string } {
+function sanitizeServiceForPublic(service: any): { id: number; name: string; status: string; is_paused: boolean; last_check_at?: string } {
   return {
     id: service.id,
     name: service.name,
     status: service.status,
+    is_paused: !!service.is_paused,
     last_check_at: service.last_check_at,
   };
 }
@@ -89,8 +90,9 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   router.get('/public/status', (req: Request, res: Response) => {
     try {
       const services = ServiceModel.getAll();
-      const downCount = services.filter((s) => s.status === 'down').length;
-      const anyDegraded = services.some((s) => s.status === 'degraded');
+      const activeServices = services.filter((s) => !s.is_paused);
+      const downCount = activeServices.filter((s) => s.status === 'down').length;
+      const anyDegraded = activeServices.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
       if (downCount >= 1) {
@@ -102,10 +104,11 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       res.json({
         status: overallStatus,
         total_services: services.length,
-        operational: services.filter((s) => s.status === 'operational').length,
-        degraded: services.filter((s) => s.status === 'degraded').length,
-        down: services.filter((s) => s.status === 'down').length,
-        unknown: services.filter((s) => s.status === 'unknown').length,
+        operational: activeServices.filter((s) => s.status === 'operational').length,
+        degraded: activeServices.filter((s) => s.status === 'degraded').length,
+        down: activeServices.filter((s) => s.status === 'down').length,
+        unknown: activeServices.filter((s) => s.status === 'unknown').length,
+        paused: services.length - activeServices.length,
         last_updated: new Date().toISOString(),
       });
     } catch (error) {
@@ -116,7 +119,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   // Public: status badge (embeddable HTML pill — use as iframe src)
   router.get('/public/badge', (req: Request, res: Response) => {
     try {
-      const services = ServiceModel.getAll();
+      const services = ServiceModel.getAll().filter((s) => !s.is_paused);
       const downCount = services.filter((s) => s.status === 'down').length;
       const anyDegraded = services.some((s) => s.status === 'degraded');
       const theme = req.query.theme === 'dark' ? 'dark' : 'light';
@@ -353,6 +356,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         verify_domain: !!verify_domain,
         retry_count: retry_count ?? 3,
         retry_delay: retry_delay ?? 5,
+        is_paused: false,
         status: 'unknown',
       });
 
@@ -385,6 +389,7 @@ export function createRouter(monitoringService: MonitoringService, notificationS
       // Don't allow updating these fields directly
       delete updates.id;
       delete updates.status;
+      delete updates.is_paused; // use /pause and /resume endpoints instead
       delete updates.last_check_at;
       delete updates.created_at;
       delete updates.updated_at;
@@ -401,8 +406,8 @@ export function createRouter(monitoringService: MonitoringService, notificationS
 
       ServiceModel.update(id, updates);
 
-      // Reschedule if check_interval changed
-      if (updates.check_interval) {
+      // Reschedule if check_interval changed (unless the service is paused)
+      if (updates.check_interval && !service.is_paused) {
         const updatedService = ServiceModel.getById(id);
         if (updatedService) {
           monitoringService.scheduleService(updatedService);
@@ -446,11 +451,68 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         return;
       }
 
+      if (service.is_paused) {
+        res.status(400).json({ error: 'Service is paused. Resume monitoring before checking it.' });
+        return;
+      }
+
       await monitoringService.checkService(service);
       const updatedService = ServiceModel.getById(id);
       res.json(updatedService);
     } catch (error) {
       res.status(500).json({ error: 'Failed to check service' });
+    }
+  });
+
+  // Admin: Pause monitoring for a service (stops checks, alerts, and downtime tracking)
+  router.post('/admin/services/:id/pause', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      const service = ServiceModel.getById(id);
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+
+      monitoringService.unscheduleService(id);
+      ServiceModel.setPaused(id, true);
+
+      // Stop accruing downtime on an incident that's in-flight when paused
+      const activeIncident = IncidentModel.getActiveByServiceId(id);
+      if (activeIncident?.id) {
+        IncidentModel.resolve(activeIncident.id);
+      }
+
+      res.json(ServiceModel.getById(id));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to pause service' });
+    }
+  });
+
+  // Admin: Resume monitoring for a paused service
+  router.post('/admin/services/:id/resume', requireAdmin, (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      const service = ServiceModel.getById(id);
+      if (!service) {
+        res.status(404).json({ error: 'Service not found' });
+        return;
+      }
+
+      ServiceModel.setPaused(id, false);
+      const resumedService = ServiceModel.getById(id)!;
+      monitoringService.scheduleService(resumedService);
+
+      // Perform an immediate check so status isn't stale from before the pause
+      monitoringService.checkService(resumedService).catch((error) => {
+        console.error('Error performing post-resume check:', error);
+      });
+
+      res.json(resumedService);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to resume service' });
     }
   });
 
@@ -536,8 +598,9 @@ export function createRouter(monitoringService: MonitoringService, notificationS
   router.get('/admin/status', requireAdmin, (req: Request, res: Response) => {
     try {
       const services = ServiceModel.getAll();
-      const downCount = services.filter((s) => s.status === 'down').length;
-      const anyDegraded = services.some((s) => s.status === 'degraded');
+      const activeServices = services.filter((s) => !s.is_paused);
+      const downCount = activeServices.filter((s) => s.status === 'down').length;
+      const anyDegraded = activeServices.some((s) => s.status === 'degraded');
 
       let overallStatus = 'operational';
       if (downCount >= 1) {
@@ -546,17 +609,18 @@ export function createRouter(monitoringService: MonitoringService, notificationS
         overallStatus = 'degraded';
       }
 
-      const activeIncidents = services
+      const activeIncidents = activeServices
         .map((s) => IncidentModel.getActiveByServiceId(s.id!))
         .filter((i) => i !== undefined);
 
       res.json({
         status: overallStatus,
         total_services: services.length,
-        operational: services.filter((s) => s.status === 'operational').length,
-        degraded: services.filter((s) => s.status === 'degraded').length,
-        down: services.filter((s) => s.status === 'down').length,
-        unknown: services.filter((s) => s.status === 'unknown').length,
+        operational: activeServices.filter((s) => s.status === 'operational').length,
+        degraded: activeServices.filter((s) => s.status === 'degraded').length,
+        down: activeServices.filter((s) => s.status === 'down').length,
+        unknown: activeServices.filter((s) => s.status === 'unknown').length,
+        paused: services.length - activeServices.length,
         active_incidents: activeIncidents.length,
         last_updated: new Date().toISOString(),
       });

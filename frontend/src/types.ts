@@ -21,6 +21,7 @@ export interface Service {
   verify_domain: boolean;
   retry_count: number;
   retry_delay: number;
+  is_paused: boolean;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
   last_check_at?: string;
   last_status_change_at?: string;
@@ -33,6 +34,7 @@ export interface PublicService {
   id: number;
   name: string;
   status: 'operational' | 'degraded' | 'down' | 'unknown';
+  is_paused: boolean;
   last_check_at?: string;
 }
 
@@ -116,6 +118,7 @@ export interface OverallStatus {
   degraded: number;
   down: number;
   unknown: number;
+  paused?: number;
   active_incidents?: number;
   last_updated: string;
 }

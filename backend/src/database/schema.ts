@@ -129,6 +129,11 @@ export function initializeDatabase() {
     db.exec("ALTER TABLE services ADD COLUMN retry_delay INTEGER DEFAULT 5");
   }
 
+  // Migration: add is_paused column
+  if (!columns.some(col => col.name === 'is_paused')) {
+    db.exec("ALTER TABLE services ADD COLUMN is_paused INTEGER DEFAULT 0");
+  }
+
   // Migration: add SSL/domain result columns to service_checks
   const checkColumns = db.prepare("PRAGMA table_info(service_checks)").all() as { name: string }[];
   if (!checkColumns.some(col => col.name === 'ssl_valid')) {

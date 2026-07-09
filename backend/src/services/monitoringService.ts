@@ -13,6 +13,7 @@ export class MonitoringService {
 
   async checkService(service: Service): Promise<void> {
     if (!service.id) return;
+    if (service.is_paused) return;
 
     console.log(`Checking service: ${service.name} (${service.url})`);
 
@@ -112,6 +113,12 @@ export class MonitoringService {
 
     // Remove existing job if any
     this.unscheduleService(service.id);
+
+    // Don't schedule checks for paused services
+    if (service.is_paused) {
+      console.log(`Skipping scheduling for paused service: ${service.name}`);
+      return;
+    }
 
     // Convert check_interval (seconds) to cron expression
     const intervalSeconds = service.check_interval;

@@ -1,4 +1,4 @@
-import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaQuestionCircle, FaPauseCircle } from 'react-icons/fa';
 import { PublicService, OverallStatus } from '../types';
 
 interface PublicDashboardProps {
@@ -31,7 +31,8 @@ function PublicDashboard({ services, overallStatus }: PublicDashboardProps) {
     return 'Outage detected';
   };
 
-  const getServiceStatusIcon = (status: string) => {
+  const getServiceStatusIcon = (status: string, isPaused: boolean) => {
+    if (isPaused) return <FaPauseCircle className="text-gray-400 text-lg" />;
     switch (status) {
       case 'operational':
         return <FaCheckCircle className="text-green-600 text-lg" />;
@@ -44,7 +45,8 @@ function PublicDashboard({ services, overallStatus }: PublicDashboardProps) {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isPaused: boolean) => {
+    if (isPaused) return 'text-gray-400';
     switch (status) {
       case 'operational': return 'text-green-600';
       case 'degraded': return 'text-yellow-600';
@@ -80,7 +82,7 @@ function PublicDashboard({ services, overallStatus }: PublicDashboardProps) {
 
       {/* Stats */}
       {overallStatus && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-4 text-center">
             <div className="text-2xl font-bold text-gray-900">{overallStatus.total_services}</div>
             <div className="text-sm text-gray-600">Total Services</div>
@@ -96,6 +98,10 @@ function PublicDashboard({ services, overallStatus }: PublicDashboardProps) {
           <div className="bg-white rounded-lg shadow p-4 text-center">
             <div className="text-2xl font-bold text-red-600">{overallStatus.down}</div>
             <div className="text-sm text-gray-600">Down</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4 text-center">
+            <div className="text-2xl font-bold text-gray-500">{overallStatus.paused ?? 0}</div>
+            <div className="text-sm text-gray-600">Paused</div>
           </div>
         </div>
       )}
@@ -115,11 +121,11 @@ function PublicDashboard({ services, overallStatus }: PublicDashboardProps) {
               <div key={service.id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {getServiceStatusIcon(service.status)}
+                    {getServiceStatusIcon(service.status, service.is_paused)}
                     <span className="text-base font-medium text-gray-900">{service.name}</span>
                   </div>
-                  <span className={`text-sm font-medium ${getStatusColor(service.status)}`}>
-                    {service.status.charAt(0).toUpperCase() + service.status.slice(1)}
+                  <span className={`text-sm font-medium ${getStatusColor(service.status, service.is_paused)}`}>
+                    {service.is_paused ? 'Paused' : service.status.charAt(0).toUpperCase() + service.status.slice(1)}
                   </span>
                 </div>
               </div>

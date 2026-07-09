@@ -239,11 +239,13 @@ interface AdminDashboardProps {
   overallStatus: OverallStatus | null;
   password: string;
   checkingServiceId: number | null;
+  togglingPauseServiceId: number | null;
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onDeleteService: (id: number) => void;
   onCopyService: (service: Service) => void;
   onCheckNow: (id: number) => void;
+  onTogglePause: (service: Service) => void;
   onLogout: () => void;
   onOpenSettings: () => void;
   onTestEmail: () => void;
@@ -255,11 +257,13 @@ function AdminDashboard({
   overallStatus,
   password,
   checkingServiceId,
+  togglingPauseServiceId,
   onAddService,
   onEditService,
   onDeleteService,
   onCopyService,
   onCheckNow,
+  onTogglePause,
   onLogout,
   onOpenSettings,
   onTestEmail,
@@ -270,12 +274,23 @@ function AdminDashboard({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name_asc');
 
+  const attentionTier = (s: Service) => {
+    const isPaused = s.is_paused === true || (s.is_paused as unknown) === 1;
+    if (s.status === 'down' && !isPaused) return 0; // Down
+    if (isPaused) return 1; // Paused
+    return 2; // everything else
+  };
+
   const filteredAndSortedServices = [...services]
     .filter((s) => {
       const q = searchQuery.toLowerCase();
       return s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
     })
     .sort((a, b) => {
+      const aTier = attentionTier(a);
+      const bTier = attentionTier(b);
+      if (aTier !== bTier) return aTier - bTier;
+
       switch (sortBy) {
         case 'name_asc':
           return a.name.localeCompare(b.name);
@@ -329,12 +344,12 @@ function AdminDashboard({
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Admin bar */}
-      <div className="flex justify-between items-center mb-6 bg-gray-800 text-white px-4 py-3 rounded-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 bg-gray-800 text-white px-4 py-3 rounded-lg">
         <span className="font-medium">Admin Mode</span>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onOpenOnCall}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
             title="On-call management"
           >
             <FaUserClock />
@@ -342,7 +357,7 @@ function AdminDashboard({
           </button>
           <button
             onClick={onTestEmail}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
             title="Send test alert email"
           >
             <FaEnvelope />
@@ -350,7 +365,7 @@ function AdminDashboard({
           </button>
           <button
             onClick={() => setShowExportModal(true)}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
             title="Export data as JSON"
           >
             <FaFileExport />
@@ -358,7 +373,7 @@ function AdminDashboard({
           </button>
           <button
             onClick={() => setShowEmbedModal(true)}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
             title="Embed status page"
           >
             <FaCode />
@@ -366,7 +381,7 @@ function AdminDashboard({
           </button>
           <button
             onClick={onOpenSettings}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
             title="Settings"
           >
             <FaCog />
@@ -374,7 +389,7 @@ function AdminDashboard({
           </button>
           <button
             onClick={onLogout}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors text-sm"
+            className="flex items-center space-x-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors text-xs sm:text-sm whitespace-nowrap"
           >
             <FaSignOutAlt />
             <span>Logout</span>
@@ -398,7 +413,7 @@ function AdminDashboard({
 
       {/* Stats */}
       {overallStatus && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-4 text-center">
             <div className="text-2xl font-bold text-gray-900">{overallStatus.total_services}</div>
             <div className="text-sm text-gray-600">Total Services</div>
@@ -414,6 +429,10 @@ function AdminDashboard({
           <div className="bg-white rounded-lg shadow p-4 text-center">
             <div className="text-2xl font-bold text-red-600">{overallStatus.down}</div>
             <div className="text-sm text-gray-600">Down</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4 text-center">
+            <div className="text-2xl font-bold text-gray-500">{overallStatus.paused ?? 0}</div>
+            <div className="text-sm text-gray-600">Paused</div>
           </div>
         </div>
       )}
@@ -475,10 +494,12 @@ function AdminDashboard({
                 service={service}
                 password={password}
                 isChecking={checkingServiceId === service.id}
+                isTogglingPause={togglingPauseServiceId === service.id}
                 onEdit={onEditService}
                 onDelete={onDeleteService}
                 onCheckNow={onCheckNow}
                 onCopyToNew={onCopyService}
+                onTogglePause={onTogglePause}
               />
             ))
           )}
