@@ -141,7 +141,7 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -158,7 +158,8 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0 overscroll-contain">
           <div className="space-y-6">
             {/* Basic Info */}
             <div>
@@ -489,8 +490,9 @@ function EditServiceModal({ service, onClose, onSave }: EditServiceModalProps) {
               </p>
             </div>
           </div>
+          </div>
 
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
